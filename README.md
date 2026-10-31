@@ -71,6 +71,10 @@ This port is only possible because of **AdrenoMetal** by the UniXNU project:
   `NativeMali` ABI client, the MT6768 plugin/scanout path and the tests for
   those pieces.
 
+This is an independent port. It is not an official UniXNU project and is not
+endorsed by the AdrenoMetal authors; the credit above records the origin of the
+work, not a claim of affiliation.
+
 A local reference copy lives in `AdrenoMetal-reference/` for development only.
 It is gitignored and is never committed, built into the product, or presented
 as part of this repository. Every derived file keeps the MIT header and names
