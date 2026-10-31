@@ -93,6 +93,11 @@ This is pure logic and must be testable without a phone.
       re-baseline.
 - [ ] Device-info cache: `gpu_id`, present masks, thread limits, feature words,
       non-coherent flag, VA size.
+- [x] IOKit transport: `IOConnectCallStructMethod` in one glue file, with a null
+      connection, oversized record and missing-output refusals, and the reply
+      copied only on success and on an exact size (`NativeMaliIokitTransport`).
+      It cannot be exercised against a real service until the kext exists; the
+      host test proves the refusal half, not the success half.
 - [x] Fake service for tests that answers records from a scripted state, not
       from hardware (`tests/fake_native_mali_service.h`): handles, single map,
       no overlapping IOVAs, chains inside a mapping, fence ownership, reset

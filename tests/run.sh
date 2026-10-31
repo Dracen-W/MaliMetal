@@ -71,6 +71,18 @@ build/tests/test_fence_tracker
     tests/test_fake_service.cpp -o build/tests/test_fake_service
 build/tests/test_fake_service
 
+if [ "$(uname -s)" = Darwin ]; then
+    "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
+        -Ibuild/abi -Isrc/native_mali -Isrc/transport \
+        src/transport/NativeMaliIokitTransport.cpp \
+        src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
+        tests/test_iokit_transport.cpp -framework IOKit \
+        -o build/tests/test_iokit_transport
+    build/tests/test_iokit_transport
+else
+    printf '%s\n' "SKIP iokit transport: not an Apple platform"
+fi
+
 if [ -n "${MALI_DEPS_DIR:-}" ]; then
     python3 tools/deps.py verify --require-all \
         --checkout "mesa=$MALI_DEPS_DIR/mesa" \

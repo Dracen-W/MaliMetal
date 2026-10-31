@@ -77,6 +77,13 @@ later successful wait.
 Every one of those paths is covered by `tests/test_device_lifecycle.cpp`,
 including the rollbacks and the "lost fence cannot be revived" case.
 
+`src/transport/NativeMaliIokitTransport.{h,cpp}` is the only file that touches
+IOKit: one `IOConnectCallStructMethod` call, no policy. It refuses a null
+connection, an output record larger than the ABI's biggest, and a missing output
+pointer; it writes the reply to a local record and copies it only when the call
+succeeded and reported exactly the requested size. The host test proves the
+refusal half only; the success half needs the kext.
+
 `tests/fake_native_mali_service.h` is a scripted stand-in for the kernel
 service: it applies the driver's rules (handle exists, one map per buffer, no
 overlapping IOVAs, the chain lies inside a mapping, the fence belongs to the
