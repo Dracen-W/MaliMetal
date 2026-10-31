@@ -6,8 +6,9 @@ Empty until MM3. This directory will hold the patches that add the
 
 Rules:
 
-- Patches apply to the commit recorded in `docs/DEPENDENCIES.md`; the series
-  must refuse to apply to anything else.
+- Patches apply to Mesa commit `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae`
+  (`docs/DEPENDENCIES.md`); the series must refuse to apply to anything else and
+  must verify the recorded sha256 of the files it patches.
 - One patch, one purpose. Do not mix a rebase with a behaviour change.
 - Each patch keeps Mesa's MIT headers and adds a `Signed-off-by`-style note only
   if the owner asks for it.

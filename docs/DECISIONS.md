@@ -114,3 +114,38 @@ Decisions already taken. Reopening one requires new evidence and an entry in
   must be recorded with the same evidence. A later upstream revision is not
   assumed to be compatible.
 - **Date:** 2026-10-31.
+
+## D10 — The PanVK seam is a Mesa patch series (Option A)
+
+- **Decision:** implement the seam as a pinned Mesa patch series with a native
+  `pan_kmod` backend, replacing the JM path's direct
+  `DRM_IOCTL_PANFROST_SUBMIT` and `drmSyncobj*` use. Option B (Panfrost DRM
+  UAPI) is the fallback; Option C (userspace DRM emulation) is rejected.
+- **Why:** it speaks `NativeMali` directly, avoids implementing a DRM object
+  model in XNU, and keeps the translation visible and testable. The owner chose
+  it on 2026-10-31.
+- **Consequence:** the patch series touches
+  `panvk_physical_device.c`, `pan_kmod.{h,c}`, `panfrost_kmod.c`,
+  `jm/panvk_vX_gpu_queue.c` and the Vulkan sync layer. The base commit is
+  pinned in D11; every Mesa update needs a rebase and a full test run. The
+  kernel ABI still has to work first.
+- **Date:** 2026-10-31.
+
+## D11 — The Mesa base is pinned to `e24dc5bd`, re-checked by hash
+
+- **Decision:** the Mesa base for the patch series is commit
+  [`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae`](https://github.com/mirror/mesa/commit/e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae),
+  a main-branch snapshot committed 2026-05-29. The five PanVK/`pan_kmod` files
+  the seam depends on are recorded by sha256 in `docs/DEPENDENCIES.md`.
+- **Why:** the newest Mesa release tag reachable from this environment is
+  `mesa-25.0.0`, which predates the current PanVK layout (the JM submit lives in
+  `jm/panvk_vX_queue.c` there) and is about a year older. Pinning the newer
+  layout gives the seam the file structure it must patch, and an immutable SHA
+  is as reproducible as a tag. No commit was pinned on a guess: every claim in
+  `docs/SEAM.md` was checked against this SHA.
+- **Consequence:** this is an unreleased snapshot, so it gets no backports and
+  main can break it. MM3 must re-verify the hashes before applying any patch; a
+  hash mismatch means stop, not "rebase and hope". A re-pin to a release tag is
+  required before any product use, and the change is recorded here with the same
+  evidence.
+- **Date:** 2026-10-31.

@@ -11,9 +11,9 @@ gaps immediately, so the kernel must be proven first.
 | Milestone | State | Exit condition |
 | --- | --- | --- |
 | MM0 repository, licences, design, porting map | **done** | this scaffold is committed in its own repository |
-| MM1 pin dependencies and reproduce a build | not started | `metal2vulkan` and Mesa commits pinned with hashes; a host build of the frontend/runtime exists |
+| MM1 pin dependencies and reproduce a build | Mesa/PanVK pinned; `metal2vulkan` open | `metal2vulkan` pinned with hashes; a host build of the frontend/runtime exists |
 | MM2 userspace NativeMali ABI client | not started | pure encode/decode, BO/VA/fence state machines host-tested |
-| MM3 `pan_kmod` seam | not started | chosen seam compiles against the pinned Mesa; fake-service tests pass |
+| MM3 `pan_kmod` seam | chosen: Option A; not started | chosen seam compiles against the pinned Mesa; fake-service tests pass |
 | MM4 PanVK device on the phone | blocked | device creation and one job complete on hardware |
 | MM5 plugin publishes a Metal device | blocked | a test process gets a `_MTLDevice` from the bundle |
 | MM6 Metal self-test | blocked | compute, render and import pass on hardware |
@@ -32,16 +32,21 @@ gaps immediately, so the kernel must be proven first.
 
 - [ ] Pin `metal2vulkan` to a commit and record the hash and licence in
       `docs/DEPENDENCIES.md`.
-- [ ] Pin Mesa to a commit/tag that contains PanVK's JM path and `pan_kmod`.
-      Record the commit and the files this port depends on.
+- [x] Pin Mesa to a commit that contains PanVK's JM path and `pan_kmod`:
+      `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` (2026-05-29), with the
+      seam-relevant files and sha256 in `docs/DEPENDENCIES.md`.
+- [ ] Re-verify those hashes before applying any patch. A mismatch is a stop,
+      not a rebase.
 - [ ] Record the toolchain (clang, Rust, linker, deployment target).
 - [ ] Reproduce the `metal2vulkan` runtime + `NativeMetalObjects.rs` bridge on
       the host, without a GPU, using the reference's build entry point as the
       model.
-- [ ] Decide whether the Mesa fork lives as a patch series in `patches/` or as a
-      separate fork with a pinned commit. Do not commit a Mesa checkout here.
+- [x] Decide whether the Mesa fork lives as a patch series in `patches/` or as a
+      separate fork with a pinned commit: a patch series in `patches/` (D10).
+      Do not commit a Mesa checkout here.
 - [ ] Confirm that the target's PanVK can be built for the target OS and ABI,
       not only for Linux/Android.
+- [ ] Name who rebases the patch series when Mesa moves.
 
 ## MM2 — userspace NativeMali ABI client
 
@@ -67,7 +72,8 @@ This is pure logic and must be testable without a phone.
 
 ## MM3 — `pan_kmod` seam
 
-Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2.
+Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2 (Option A) and on
+the pinned Mesa base in `docs/DEPENDENCIES.md`.
 
 - [ ] Add the chosen backend to the pinned Mesa tree via `patches/`.
 - [ ] Replace the JM submission call: a `pan_kmod` submit op instead of

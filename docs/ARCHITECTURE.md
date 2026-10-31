@@ -157,8 +157,8 @@ libdrm/ioctls directly:
   `drmSyncobjCreate()`, `drmSyncobjWait()`, `drmSyncobjDestroy()`,
   `DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD`, `DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE` and
   `DRM_IOCTL_SYNCOBJ_RESET`.
-- `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c:gpu_queue_submit()` asserts that
-  every wait/signal is a DRM syncobj
+- `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c:panvk_per_arch(gpu_queue_submit)()`
+  asserts that every wait/signal is a DRM syncobj
   (`vk_sync_type_is_drm_syncobj()` / `vk_sync_as_drm_syncobj()`).
 - The job chain itself is built before this point and is already the Bifrost v7
   chain that `NativeMali::Submit` expects. The gap is the **submission and
@@ -176,8 +176,9 @@ So Option A is a patch series that must replace at least:
 
 This is a larger patch surface than "add one `pan_kmod` backend". It is still
 smaller than implementing the Panfrost DRM UAPI in the kernel (Option B), but
-the estimate must include it. The exact file list must be re-checked against the
-pinned Mesa commit before MM3 starts.
+the estimate must include it. The file list above matches the pinned Mesa commit
+`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae`; the per-file hashes are in
+`docs/DEPENDENCIES.md`, and MM3 must re-verify them before applying a patch.
 
 ### 6. NativeMali ABI
 
@@ -345,15 +346,14 @@ Costs:
 - `mmap()` on that fd still has to be intercepted;
 - the shim becomes a second ABI with worse observability than a Mesa backend.
 
-### Current preference
+### Chosen: Option A
 
-Option A is the smallest honest seam, but it must not be started before the
-`NativeMali` ABI has run a real job on the phone. The decision is recorded in
-`docs/DECISIONS.md` as **open**, with the evidence above. The direct
+Option A is the recorded decision (2026-10-31). It must not be started before
+the `NativeMali` ABI has run a real job on the phone. The direct
 `DRM_IOCTL_PANFROST_SUBMIT` and `drmSyncobj*` calls in the JM queue mean that
-Option A is a real Mesa patch series, not a drop-in backend. If the owner is not
-willing to maintain that series, Option B is the only way to run upstream PanVK
-unmodified; Option C is not preferred.
+Option A is a real Mesa patch series, not a drop-in backend. Option B is the
+fallback if the owner will not maintain that series; Option C is rejected.
+The technical patch plan is in `docs/SEAM.md`.
 
 ## Memory and coherency
 

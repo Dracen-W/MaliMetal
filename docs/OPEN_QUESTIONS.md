@@ -5,26 +5,39 @@ Following the rule "when unsure, stop": every item below is waiting on a human
 answer, a hardware measurement, or a pinned dependency. Do not silently choose
 one in code.
 
-## 1. Mesa/PanVK dependency and patch policy — open
+## 1. Mesa/PanVK dependency — **base pinned, two questions remain**
 
-The port needs a Mesa fork or a patch series. Neither is approved yet.
+The base is pinned to Mesa commit
+`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` (main-branch snapshot, committed
+2026-05-29), with the five seam-relevant files and their sha256 recorded in
+`docs/DEPENDENCIES.md`. The revision contains PanVK's JM path, `pan_kmod`, the
+Bifrost compiler and the `panvk_vX_gpu_queue.c` layout this design patches.
 
-Questions:
+Resolved by that pin:
 
-- Is a pinned Mesa fork acceptable as a build dependency?
-- If yes, which commit/tag? It must contain PanVK's JM path, `pan_kmod` and the
-  Bifrost v7 compiler.
-- Do patches live in `patches/` in this repository (applied to a pristine Mesa
-  checkout), or in a separate fork with a pinned commit?
-- Who rebases the patches when Mesa moves?
-- Is the target build (`iOS`-style userspace, not Linux/Android) supported by
-  the chosen Mesa revision's build system? If not, what is the minimum build
-  shim?
+- a pinned Mesa checkout is the build dependency (the port keeps only the patch
+  series, never the tree);
+- patches live in `patches/`, applied to a pristine checkout of the pinned SHA;
+- the commit, not a branch, is what a build must match.
 
-Until answered: MM3 cannot start. MM1 can record the candidate commit and the
-files it depends on.
+Still open:
 
-## 2. The `pan_kmod` seam — open
+- **Who rebases the patches when Mesa moves,** and how often. The patch series
+  touches the JM submission path and the Vulkan sync layer, so a rebase is not
+  mechanical.
+- **Is the target build supported by this revision's build system?** PanVK here
+  expects a Linux/Android-style build (libdrm headers, meson, Python/mako). If
+  the target's `iOS`-style userspace toolchain cannot build it, what is the
+  minimum build shim?
+- **Re-pin to a release tag before product use.** `e24dc5bd` is unreleased: no
+  backports, and main can break it. The newest release tag reachable from this
+  environment is `mesa-25.0.0`, which has a different JM file layout, so that
+  re-pin is a re-target, not a rebase.
+
+Until the rebase owner and the build shim are answered, MM3 cannot claim to be
+reproducible, even though the base itself is fixed.
+
+## 2. The `pan_kmod` seam — **resolved: Option A (Mesa patch series)**
 
 The three options are in `docs/ARCHITECTURE.md`:
 
@@ -32,11 +45,12 @@ The three options are in `docs/ARCHITECTURE.md`:
 - **B** a Panfrost-compatible DRM UAPI in the kernel;
 - **C** a userspace DRM emulation shim.
 
-Current preference: **A**, because it speaks `NativeMali` directly and avoids a
-large DRM implementation. It is not chosen because PanVK also uses the DRM fd
-for mmap and syncobj, so the patch surface is larger than a vtable.
+The owner chose **A** on 2026-10-31. The port will carry a pinned Mesa patch
+series: a native `pan_kmod` backend plus the JM submission/sync changes listed
+below. Option B remains the fallback only if the patch series proves
+unmaintainable; Option C is rejected.
 
-Evidence:
+Evidence that shaped the decision:
 
 - `src/panfrost/vulkan/panvk_physical_device.c:create_kmod_dev()` opens a
   render node, calls `drmGetVersion()` and requires `panfrost`/`panthor`.
@@ -53,13 +67,18 @@ Evidence:
   and passes a `struct drm_panfrost_submit` with `bo_handles`, `in_syncs`,
   `out_sync`, `jc` and `requirements`.
 - The same JM file creates/waits/destroys DRM syncobjs with `drmSyncobj*` and
-  `DRM_IOCTL_SYNCOBJ_*`; `gpu_queue_submit()` asserts every wait/signal is a
-  DRM syncobj.
+  `DRM_IOCTL_SYNCOBJ_*`; `panvk_per_arch(gpu_queue_submit)()` asserts every
+  wait/signal is a DRM syncobj.
 
-Question: approve Option A, or require B/C? If A, approve that the patch series
-may touch the JM submission path and the Vulkan sync layer, not only
-`pan_kmod`. If that maintenance burden is unacceptable, say so now, because
-Option B is a much larger kernel project.
+Consequences accepted with Option A:
+
+- the patch series must touch the JM submission path and the Vulkan sync layer,
+  not only `pan_kmod`;
+- every Mesa update needs a rebase and a re-run of the host tests;
+- the Mesa base is pinned to `e24dc5bd` (item 1), and MM3 must re-verify the
+  recorded hashes before applying anything;
+- the kernel ABI still comes first: the seam is not validated before
+  `Mali-G52` runs a real job.
 
 ## 3. Kernel ABI gaps for a Vulkan driver — measured, decision needed
 

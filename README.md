@@ -105,8 +105,8 @@ speaks `NativeMaliABI.h`.
 | Area | State |
 | --- | --- |
 | Repository scaffold, design, porting map | done |
-| Dependency pin (metal2vulkan, Mesa/PanVK) | open |
-| `pan_kmod` backend seam | open; options in `docs/ARCHITECTURE.md` |
+| Dependency pin (metal2vulkan, Mesa/PanVK) | Mesa/PanVK pinned to `e24dc5bd`; `metal2vulkan` still open |
+| `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
 | Userspace `NativeMali` ABI client | not started |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal plugin / device publish | blocked on PanVK |
@@ -121,8 +121,8 @@ Do not expect a binary, a bundle or an installable artifact yet.
 The full checklists are in `docs/TODO.md`. The short form:
 
 1. **MM0** — repository, licences, design, porting map.
-2. **MM1** — pin `metal2vulkan` and a Mesa commit; reproduce the dependencies
-   without hardware.
+2. **MM1** — pin `metal2vulkan`; reproduce the pinned Mesa/PanVK base without
+   hardware (Mesa is already pinned to `e24dc5bd`).
 3. **MM2** — a pure, host-tested userspace `NativeMali` ABI client.
 4. **MM3** — a Mesa `pan_kmod` backend over that client (the seam decision).
 5. **MM4** — PanVK creates a device and runs a trivial job on the phone.
@@ -220,7 +220,7 @@ means for PanVK.
 | `MaliMetal` (this) | userspace Metal frontend and Vulkan backend seam | separate git repository |
 | `UniXNU-merlinx` | OS image, ADT, build orchestration, display driver | do not modify from here |
 | `AdrenoMetal` | MIT reference for architecture and reusable frontend | never commit the copy |
-| Mesa | PanVK and the Bifrost compiler | pinned fork/patches, never commit a checkout |
+| Mesa | PanVK and the Bifrost compiler | base pinned to `e24dc5bd`; patch series in `patches/`; never commit a checkout |
 | `metal2vulkan` | Metal API over Vulkan | linked unmodified, pinned revision |
 
 ## References
@@ -229,9 +229,10 @@ means for PanVK.
   `NativeMaliABI.h` for the kernel side and the measured phone facts.
 - `AdrenoMetal-reference/README.md` and `AGENTS.md` for the model.
 - Mesa `src/panfrost/vulkan/panvk_physical_device.c`,
-  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` for the backend
-  assumptions. The exact commit still has to be pinned in
-  `docs/DEPENDENCIES.md`.
+  `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c`,
+  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` at commit
+  `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` for the backend assumptions. The
+  pinned files and their hashes are in `docs/DEPENDENCIES.md`.
 
 ## Licence
 

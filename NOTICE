@@ -50,7 +50,10 @@ Third-party material
    Copyright © 2019-2026 Collabora Ltd., Alyssa Rosenzweig, Broadcom and other
    Mesa contributors.
    Used as a pinned dependency through a patch series; no Mesa source is
-   committed in this repository. The patches keep Mesa's MIT headers.
+   committed in this repository. The pinned base is commit
+   e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae of
+   https://gitlab.freedesktop.org/mesa/mesa, read through the read-only mirror
+   https://github.com/mirror/mesa. The patches keep Mesa's MIT headers.
 
 3. NativeMali
    SPDX-License-Identifier: GPL-2.0-only
