@@ -57,6 +57,21 @@ public:
     NativeMaliError device_info(NativeMaliAbiDeviceInfo *out);
     NativeMaliError status(NativeMaliAbiStatus *out);
 
+    /* Buffers. Sizes and addresses are validated here first, so a malformed
+     * request never reaches the service. */
+    NativeMaliError bo_alloc(uint64_t bytes, uint64_t *handle);
+    NativeMaliError bo_map(uint64_t handle, uint64_t iova, uint32_t permissions,
+                           uint64_t *mapped_iova);
+    NativeMaliError bo_free(uint64_t handle);
+    NativeMaliError bo_cpu_map(uint64_t handle, uint32_t *token, uint64_t *bytes);
+    NativeMaliError bo_cpu_unmap(uint64_t handle, uint32_t token);
+
+    /* Jobs and fences. `job_chain` is a GPU address in memory this client has
+     * already mapped, aligned to NativeMaliAbiJobChainAlign. */
+    NativeMaliError submit(uint64_t job_chain, uint64_t wait_fence,
+                           uint64_t wait_timeout_ns, uint64_t *fence);
+    NativeMaliError wait_fence(uint64_t fence, uint64_t timeout_ns);
+
     /* Device-wide recovery. Destroys every client's in-flight jobs. */
     NativeMaliError reset();
 

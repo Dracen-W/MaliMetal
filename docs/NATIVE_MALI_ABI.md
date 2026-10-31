@@ -32,8 +32,12 @@ validates the selector and sizes, calls a `NativeMaliTransport` (the IOConnect
 call on the phone, a scripted fake in tests), maps `kIOReturn*` onto a small
 internal error enum, and leaves the caller's output untouched unless the call
 succeeded. `Query` also refuses a reply whose ABI version or `max_bo_bytes`
-disagrees with the header. `tests/test_native_mali_client.cpp` covers the
-success path, every refusal and the untouched-output rule.
+disagrees with the header. Every selector is wrapped; the request-side rules
+(alignment, nonzero handle/IOVA/fence, read permission, the 64-byte chain
+alignment) are enforced before the service sees the record, and a reply that
+does not echo the requested IOVA, or that carries a zero handle/token/fence, is
+refused. `tests/test_native_mali_client.cpp` covers the success path, every
+refusal and the untouched-output rule.
 
 `src/native_mali/NativeMaliIovaAllocator.{h,cpp}` is the address allocator the
 ABI expects userspace to supply: 4 KiB granularity, nonzero addresses, first fit

@@ -107,7 +107,7 @@ speaks `NativeMaliABI.h`.
 | Repository scaffold, design, porting map | done |
 | Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136` |
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
-| Userspace `NativeMali` ABI client | records, call path, BO table and IOVA allocator, all host-tested; fence tracker and submit wrapper next |
+| Userspace `NativeMali` ABI client | all 11 methods wrapped, BO table and IOVA allocator, host-tested; fence tracker and lifecycle coordinator next |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal plugin / device publish | blocked on PanVK |
 | Metal self-test (compute, render, import) | blocked on device creation |

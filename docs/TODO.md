@@ -61,8 +61,13 @@ This is pure logic and must be testable without a phone.
       Done for the selector/record-size half (`NativeMaliAbiTable`, host-tested);
       the service call and output-untouched rule come with the client itself.
 - [x] Userspace client call path: build the record, call the service, leave the
-      output untouched on failure. Query, GetDeviceInfo, GetStatus and Reset are
-      done and host-tested; BO and fence methods need their state machines first.
+      output untouched on failure. All 11 selectors are wrapped (`Query`,
+      `GetDeviceInfo`, `BoAlloc/Map/Free`, `BoCpuMap/Unmap`, `Submit`,
+      `WaitFence`, `GetStatus`, `Reset`) and the request-side rules are enforced
+      before the call: alignment, nonzero handles/IOVAs/fences, read permission,
+      the 64-byte chain alignment, and reply consistency (version, BO limit,
+      echoed IOVA, nonzero handle/token/fence). Host-tested with a fake
+      transport.
 - [ ] Error mapping: `kIOReturn*` → a small internal error enum → Vulkan
       (`VK_ERROR_DEVICE_LOST`, `VK_ERROR_OUT_OF_DEVICE_MEMORY`, ...).
       The kernel→internal half exists; the internal→Vulkan half belongs to the

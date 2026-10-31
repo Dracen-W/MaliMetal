@@ -40,6 +40,13 @@ struct FakeTransport final : NativeMaliTransport {
     uint32_t reply_version = NativeMaliAbiVersion;
     uint64_t reply_max_bo_bytes = UINT64_C(1) << NativeMaliAbiMaxBoBytesShift;
 
+    /* What the other methods answer. */
+    uint64_t reply_handle = 0xABC;
+    uint32_t reply_token = 5;
+    uint64_t reply_cpu_bytes = 8192;
+    uint64_t reply_fence = 0xFEED;
+    bool echo_map_iova = true;
+
     int call(uint32_t sel, const void *input, size_t in_bytes, void *output,
              size_t out_bytes) override {
         ++calls;
@@ -74,9 +81,28 @@ struct FakeTransport final : NativeMaliTransport {
             auto *reply = static_cast<NativeMaliAbiStatus *>(output);
             reply->faults = 3;
             reply->resets = 1;
+        } else if (sel == NativeMaliMethodBoAlloc) {
+            auto *reply = static_cast<NativeMaliAbiBoAllocReply *>(output);
+            reply->handle = reply_handle;
+        } else if (sel == NativeMaliMethodBoMap) {
+            const auto *request = static_cast<const NativeMaliAbiBoMap *>(input);
+            auto *reply = static_cast<NativeMaliAbiBoMapReply *>(output);
+            reply->iova = echo_map_iova ? request->iova : request->iova + 0x1000;
+            last_map_request = *request;
+        } else if (sel == NativeMaliMethodBoCpuMap) {
+            auto *reply = static_cast<NativeMaliAbiBoCpuMapReply *>(output);
+            reply->token = reply_token;
+            reply->bytes = reply_cpu_bytes;
+        } else if (sel == NativeMaliMethodSubmit) {
+            last_submit_request = *static_cast<const NativeMaliAbiSubmit *>(input);
+            auto *reply = static_cast<NativeMaliAbiSubmitReply *>(output);
+            reply->fence = reply_fence;
         }
         return 0;
     }
+
+    NativeMaliAbiBoMap last_map_request{};
+    NativeMaliAbiSubmit last_submit_request{};
 };
 
 template <typename T>
@@ -171,6 +197,138 @@ int main() {
            "null device info refused");
     expect(client.status(nullptr) == NativeMaliError::InvalidArgument, "null status refused");
     expect(transport.calls == calls_before, "no transport call for a null reply");
+
+    /* Buffers: the client validates before the service is called. */
+    uint64_t handle = 0;
+    expect(client.bo_alloc(2 * NativeMaliAbiPageBytes, &handle) == NativeMaliError::None,
+           "BoAlloc succeeds");
+    expect(handle == transport.reply_handle, "handle copied");
+    expect(transport.selector == NativeMaliMethodBoAlloc && transport.input_bytes == 8 &&
+               transport.output_bytes == 8,
+           "BoAlloc uses selector 3 and 8-byte records");
+
+    const unsigned calls_before_alloc = transport.calls;
+    expect(client.bo_alloc(0, &handle) == NativeMaliError::InvalidArgument, "zero bytes refused");
+    expect(client.bo_alloc(NativeMaliAbiPageBytes + 1, &handle) == NativeMaliError::InvalidArgument,
+           "unaligned bytes refused");
+    expect(client.bo_alloc(NATIVE_MALI_ABI_MAX_BO_BYTES + NativeMaliAbiPageBytes, &handle) ==
+               NativeMaliError::InvalidArgument,
+           "over the limit refused");
+    expect(client.bo_alloc(NativeMaliAbiPageBytes, nullptr) == NativeMaliError::InvalidArgument,
+           "null handle refused");
+    expect(transport.calls == calls_before_alloc, "invalid BoAlloc never reaches the service");
+
+    transport.reply_handle = 0;
+    expect(client.bo_alloc(NativeMaliAbiPageBytes, &handle) == NativeMaliError::Unsupported,
+           "a zero handle reply is refused");
+    transport.reply_handle = 0xABC;
+
+    /* BoMap: nonzero, aligned, read always; the reply must echo the address. */
+    uint64_t mapped = 0;
+    expect(client.bo_map(handle, 0x10000, NativeMaliBoRead | NativeMaliBoWrite, &mapped) ==
+               NativeMaliError::None,
+           "BoMap succeeds");
+    expect(mapped == 0x10000, "mapped address copied");
+    expect(transport.last_map_request.handle == handle &&
+               transport.last_map_request.iova == 0x10000 &&
+               transport.last_map_request.permissions ==
+                   (NativeMaliBoRead | NativeMaliBoWrite),
+           "BoMap request carries handle, IOVA and permissions");
+    expect(client.bo_map(handle, 0, NativeMaliBoRead, &mapped) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses IOVA 0");
+    expect(client.bo_map(handle, 0x10800, NativeMaliBoRead, &mapped) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses an unaligned IOVA");
+    expect(client.bo_map(handle, 0x10000, NativeMaliBoWrite, &mapped) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses write without read");
+    expect(client.bo_map(handle, 0x10000, NativeMaliBoRead | (1u << 9), &mapped) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses an unknown permission bit");
+    expect(client.bo_map(0, 0x10000, NativeMaliBoRead, &mapped) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses handle 0");
+    expect(client.bo_map(handle, 0x10000, NativeMaliBoRead, nullptr) ==
+               NativeMaliError::InvalidArgument,
+           "BoMap refuses a null out pointer");
+
+    transport.echo_map_iova = false;
+    expect(client.bo_map(handle, 0x10000, NativeMaliBoRead, &mapped) ==
+               NativeMaliError::Unsupported,
+           "BoMap refuses a reply that moved the address");
+    transport.echo_map_iova = true;
+
+    expect(client.bo_free(0) == NativeMaliError::InvalidArgument, "BoFree refuses handle 0");
+    expect(client.bo_free(handle) == NativeMaliError::None, "BoFree succeeds");
+    expect(transport.selector == NativeMaliMethodBoFree && transport.input_bytes == 8 &&
+               transport.output_was_null,
+           "BoFree uses selector 5, one record, no reply");
+
+    /* CPU view: a token is nonzero and belongs to this buffer. */
+    uint32_t token = 0;
+    uint64_t cpu_bytes = 0;
+    expect(client.bo_cpu_map(handle, &token, &cpu_bytes) == NativeMaliError::None,
+           "BoCpuMap succeeds");
+    expect(token == transport.reply_token && cpu_bytes == transport.reply_cpu_bytes,
+           "token and bytes copied");
+    expect(transport.selector == NativeMaliMethodBoCpuMap && transport.input_bytes == 8 &&
+               transport.output_bytes == 16,
+           "BoCpuMap uses selector 6 with 8/16-byte records");
+
+    transport.reply_token = 0;
+    expect(client.bo_cpu_map(handle, &token, &cpu_bytes) == NativeMaliError::Unsupported,
+           "a zero token is refused");
+    transport.reply_token = 5;
+    expect(client.bo_cpu_map(handle, nullptr, &cpu_bytes) == NativeMaliError::InvalidArgument,
+           "BoCpuMap refuses a null token pointer");
+    expect(client.bo_cpu_map(handle, &token, nullptr) == NativeMaliError::InvalidArgument,
+           "BoCpuMap refuses a null bytes pointer");
+
+    expect(client.bo_cpu_unmap(handle, token) == NativeMaliError::None, "BoCpuUnmap succeeds");
+    expect(transport.selector == NativeMaliMethodBoCpuUnmap && transport.input_bytes == 16 &&
+               transport.output_was_null,
+           "BoCpuUnmap uses selector 7");
+    expect(client.bo_cpu_unmap(handle, 0) == NativeMaliError::InvalidArgument,
+           "BoCpuUnmap refuses token 0");
+
+    /* Submit: the chain is 64-byte aligned and the fence is nonzero. */
+    uint64_t fence = 0;
+    expect(client.submit(0x20000, 0, 0, &fence) == NativeMaliError::None, "Submit succeeds");
+    expect(fence == transport.reply_fence, "fence copied");
+    expect(transport.selector == NativeMaliMethodSubmit && transport.input_bytes == 32 &&
+               transport.output_bytes == 8,
+           "Submit uses selector 8 with 32/8-byte records");
+    expect(transport.last_submit_request.job_chain == 0x20000 &&
+               transport.last_submit_request.wait_fence == 0 &&
+               transport.last_submit_request.wait_timeout_ns == 0,
+           "Submit request carries the chain and no wait");
+
+    expect(client.submit(0, 0, 0, &fence) == NativeMaliError::InvalidArgument,
+           "Submit refuses chain 0");
+    expect(client.submit(0x20008, 0, 0, &fence) == NativeMaliError::InvalidArgument,
+           "Submit refuses an unaligned chain");
+    expect(client.submit(0x20000, 0, 0, nullptr) == NativeMaliError::InvalidArgument,
+           "Submit refuses a null fence pointer");
+
+    transport.reply_fence = 0;
+    expect(client.submit(0x20000, 0, 0, &fence) == NativeMaliError::Unsupported,
+           "a zero fence reply is refused");
+    transport.reply_fence = 0xFEED;
+
+    expect(client.submit(0x20000, 0xFEED, 5000, &fence) == NativeMaliError::None,
+           "Submit with a dependency succeeds");
+    expect(transport.last_submit_request.wait_fence == 0xFEED &&
+               transport.last_submit_request.wait_timeout_ns == 5000,
+           "Submit passes the dependency and its timeout");
+
+    /* WaitFence: a fence is required; zero is not "no wait" here. */
+    expect(client.wait_fence(0, 0) == NativeMaliError::InvalidArgument,
+           "WaitFence refuses fence 0");
+    expect(client.wait_fence(0xFEED, 0) == NativeMaliError::None, "WaitFence succeeds");
+    expect(transport.selector == NativeMaliMethodWaitFence && transport.input_bytes == 16 &&
+               transport.output_was_null,
+           "WaitFence uses selector 9, one record, no reply");
 
     /* The error names exist for logs. */
     for (int value = 0; value <= static_cast<int>(NativeMaliError::Unknown); ++value) {
