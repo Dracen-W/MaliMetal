@@ -160,6 +160,28 @@ patch is verified against the pinned commit before it is adopted.
 `metal2vulkan` requires Rust 1.98 per its workspace manifest; the toolchain is
 still an open item in `docs/OPEN_QUESTIONS.md`.
 
+## Recorded toolchain (host reproduction)
+
+The `metal2vulkan` pins were reproduced on this machine, not just read:
+
+```text
+rustc  1.98.1 (48a229cea 2026-09-01)
+cargo  1.98.1 (797e8a9bc 2026-08-05)
+target aarch64-apple-darwin (stable, default)
+```
+
+Command and result, at `219f01365dc4c8eb346816c405b5b17403793764`:
+
+```sh
+cargo build                              # crates/metal2vulkan: Finished in 42 s
+cargo build -p metal2vulkan-runtime      # runtime (ash 0.38, libloading): Finished in 61 s
+```
+
+Both are **host** builds (macOS arm64). The translator and the runtime compile;
+the bridge (`NativeMetalObjects.rs`, AdrenoMetal) is not built here, and nothing
+has been cross-built for the phone's userspace. Clang for the target remains the
+open item in `docs/OPEN_QUESTIONS.md`.
+
 ## Pin history
 
 ```text

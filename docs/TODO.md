@@ -41,10 +41,13 @@ gaps immediately, so the kernel must be proven first.
       not a rebase.
 - [x] Name who rebases the patch series when Mesa moves: the repository owner,
       per `docs/MAINTENANCE.md` and D13.
-- [ ] Record the toolchain (clang, Rust ≥ 1.98, linker, deployment target).
-- [ ] Reproduce the `metal2vulkan` runtime + `NativeMetalObjects.rs` bridge on
-      the host, without a GPU, using the reference's build entry point as the
-      model.
+- [x] Record the Rust toolchain: rustc/cargo 1.98.1, host `aarch64-apple-darwin`
+      (`docs/DEPENDENCIES.md`). Clang for the target and the deployment target
+      are still open.
+- [x] Reproduce the pinned `metal2vulkan` on the host: the translator and
+      `metal2vulkan-runtime` both build at `219f0136` with Rust 1.98.1.
+- [ ] Reproduce the `NativeMetalObjects.rs` bridge (AdrenoMetal's file) against
+      that runtime; not started.
 - [x] Decide whether the Mesa fork lives as a patch series in `patches/` or as a
       separate fork with a pinned commit: a patch series in `patches/` (D10).
       Do not commit a Mesa checkout here.
