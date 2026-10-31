@@ -114,7 +114,10 @@ this milestone exposes are in `docs/INTEGRATION.md`.
 Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2 (Option A) and on
 the pinned Mesa base in `docs/DEPENDENCIES.md`.
 
-- [ ] Map `NativeMaliError` onto `VkResult` in the backend (the client half is
+- [x] Provide the C surface the patch maps onto
+      (`src/backend/native_mali_kmod.{h,cpp}`, host-tested through the scripted
+      service).
+- [ ] Map `NativeMaliResult` onto `VkResult` in the patch (the client half is
       already done in MM2).
 - [ ] Add the chosen backend to the pinned Mesa tree via `patches/`.
 - [ ] Replace the JM submission call: a `pan_kmod` submit op instead of

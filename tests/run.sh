@@ -39,7 +39,7 @@ compile() {
     output=$1
     shift
     # shellcheck disable=SC2086 # cxxflags is a deliberate flag list
-    "${CXX:-c++}" $cxxflags -Ibuild/abi -Isrc/native_mali -Isrc/transport -Itests \
+    "${CXX:-c++}" $cxxflags -Ibuild/abi -Isrc/native_mali -Isrc/transport -Isrc/backend -Itests \
         "$@" -o "$output"
 }
 
@@ -81,6 +81,9 @@ run_test test_fence_tracker src/native_mali/NativeMaliFenceTracker.cpp \
 run_test test_device_lifecycle $lifecycle_sources tests/test_device_lifecycle.cpp
 # shellcheck disable=SC2086
 run_test test_fake_service $lifecycle_sources tests/test_fake_service.cpp
+# shellcheck disable=SC2086
+run_test test_kmod_api $lifecycle_sources src/backend/native_mali_kmod.cpp \
+    tests/test_kmod_api.cpp
 
 if [ "$(uname -s)" = Darwin ]; then
     # shellcheck disable=SC2086

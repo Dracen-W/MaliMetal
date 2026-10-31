@@ -84,6 +84,13 @@ pointer; it writes the reply to a local record and copies it only when the call
 succeeded and reported exactly the requested size. The host test proves the
 refusal half only; the success half needs the kext.
 
+`src/backend/native_mali_kmod.{h,cpp}` is the C surface for the future Mesa
+backend. It owns a `NativeMaliClient`, `NativeMaliDevice`, buffer table, IOVA
+allocator and fence tracker, and exposes one function per ABI operation with a
+fixed `NativeMaliResult` enum. It adds no policy; everything it does is a
+forward to the host-tested C++ layer. `tests/test_kmod_api.cpp` drives it
+through the scripted service.
+
 `tests/fake_native_mali_service.h` is a scripted stand-in for the kernel
 service: it applies the driver's rules (handle exists, one map per buffer, no
 overlapping IOVAs, the chain lies inside a mapping, the fence belongs to the

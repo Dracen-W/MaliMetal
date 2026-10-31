@@ -106,7 +106,7 @@ speaks `NativeMaliABI.h`.
 | --- | --- |
 | Repository scaffold, design, porting map | done |
 | Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136` |
-| `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
+| `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; C surface ready, patch not written |
 | Userspace `NativeMali` ABI client | **MM2 complete for v1**: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal plugin / device publish | blocked on PanVK |
@@ -184,6 +184,7 @@ between those two models. The options and the evidence are in
 ├── deps/abi.sha256            sha256 of the canonical NativeMaliABI.h
 ├── patches/                   Mesa and metal2vulkan patch series (empty until MM3)
 ├── src/native_mali/           ABI-side userspace code (client, lifecycle, fences)
+├── src/backend/               C surface the Mesa patch maps onto
 ├── src/transport/             IOKit glue: one external method call
 ├── tests/                     host tests; tests/run.sh runs them all
 ├── tools/deps.py              pin verifier: fails on a wrong checkout

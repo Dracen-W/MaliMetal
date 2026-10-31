@@ -53,6 +53,29 @@ Therefore the patch series has three parts:
 2. a submit operation that replaces the direct DRM submit;
 3. a Vulkan sync type that can represent a `NativeMali` fence.
 
+## Backend entry point (already implemented, host-tested)
+
+The Mesa patch should not call our C++ classes. `src/backend/native_mali_kmod.h`
+is the stable C surface it maps onto:
+
+| pan_kmod / PanVK need | C facade call |
+| --- | --- |
+| device creation and properties | `native_mali_kmod_create` + `native_mali_kmod_props` |
+| `bo_alloc` | `native_mali_kmod_alloc` |
+| `vm_bind` / map | `native_mali_kmod_map` |
+| `bo_free` (with a guard fence when a job may still read it) | `native_mali_kmod_free` |
+| CPU view | `native_mali_kmod_cpu_map` / `native_mali_kmod_cpu_unmap` |
+| job submission | `native_mali_kmod_submit` |
+| fence wait | `native_mali_kmod_wait` |
+| device-lost detection | `native_mali_kmod_refresh_status` |
+| recovery | `native_mali_kmod_reset` |
+| error to `VkResult` | `NativeMaliResult` (one enum, one mapping in the patch) |
+
+The facade adds no policy: it forwards to `NativeMaliDevice`, owns the allocator,
+the buffer table and the fence tracker, and translates errors. It is exercised
+by `tests/test_kmod_api.cpp` against the scripted service, so the Mesa patch can
+be written against a working C surface without a kernel.
+
 ## Proposed Mesa additions
 
 Names are proposals, not upstream API. Keep them in one patch series so a rebase
