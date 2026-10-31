@@ -87,6 +87,11 @@ With `MALI_DEPS_DIR` set it also verifies the Mesa and `metal2vulkan` checkouts.
 `tests/run.sh --san` runs the same suite under AddressSanitizer and UBSan; use it
 for anything that touches the buffer records, the allocator or the fence table.
 
+The same two commands run in CI (`.github/workflows/host-tests.yml`) on every
+push: a macOS job with `MALI_G52_DIR` pointing at a `Dracen-W/Mali-G52`
+checkout, and a job that verifies the `metal2vulkan` pin. Keep the workflow and
+`tests/run.sh` in step; a check that exists only in one of them is a trap.
+
 A full build — the Mesa patch series, the `metal2vulkan` bridge and the bundle —
 does not exist yet, so it is not documented. When it exists it must use
 `tools/deps.py verify --require-all` and refuse to produce a bundle if any pin

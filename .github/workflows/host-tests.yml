@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0-only
+name: host tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # The userspace stack, on a Mac runner: the ABI header comes from the
+  # canonical kernel repository, never from a copy committed here.
+  host:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out Mali-G52 (canonical NativeMaliABI.h)
+        uses: actions/checkout@v4
+        with:
+          repository: Dracen-W/Mali-G52
+          path: .kernel
+
+      - name: Host tests
+        env:
+          MALI_G52_DIR: ${{ github.workspace }}/.kernel
+        run: tests/run.sh
+
+      - name: Host tests under AddressSanitizer and UBSan
+        env:
+          MALI_G52_DIR: ${{ github.workspace }}/.kernel
+        run: tests/run.sh --san
+
+  # The translator pin only: small, fast, and it fails loudly when the pin file
+  # and the upstream revision disagree. Mesa is skipped here because a shallow
+  # checkout of its tree is large; verify it locally with
+  # MALI_DEPS_DIR=... tests/run.sh, or in a dedicated job if that changes.
+  metal2vulkan-pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch metal2vulkan at the pinned revision
+        run: |
+          set -eu
+          revision=$(python3 - <<'PY'
+          import tomllib
+          with open('deps/deps.toml', 'rb') as handle:
+              pins = tomllib.load(handle)
+          for dependency in pins['dependency']:
+              if dependency['id'] == 'metal2vulkan':
+                  print(dependency['revision'])
+                  break
+          else:
+              raise SystemExit('metal2vulkan is not pinned')
+          PY
+          )
+          mkdir -p .deps/metal2vulkan
+          git -C .deps/metal2vulkan init --quiet
+          git -C .deps/metal2vulkan remote add origin https://github.com/steelbrain/metal2vulkan
+          git -C .deps/metal2vulkan fetch --quiet --depth 1 origin "$revision"
+          git -C .deps/metal2vulkan checkout --quiet --detach FETCH_HEAD
+
+      - name: Verify the recorded file hashes
+        run: python3 tools/deps.py verify --checkout metal2vulkan=.deps/metal2vulkan

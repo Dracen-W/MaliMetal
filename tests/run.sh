@@ -55,8 +55,14 @@ python3 tools/deps.py selftest
 python3 tests/test_pins.py
 
 # The ABI records are defined in Mali-G52. Generate the pinned copy, then
-# compile the host-testable userspace code against exactly that copy.
-python3 tools/sync-abi.py
+# compile the host-testable userspace code against exactly that copy. In CI the
+# kernel checkout is not beside this one, so MALI_G52_DIR is authoritative when
+# it is set.
+if [ -n "${MALI_G52_DIR:-}" ]; then
+    python3 tools/sync-abi.py --kernel "$MALI_G52_DIR"
+else
+    python3 tools/sync-abi.py
+fi
 mkdir -p build/tests
 
 # The imported Metal object ABI must compile on its own, as C and as C++.

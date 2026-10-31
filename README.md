@@ -117,6 +117,21 @@ speaks `NativeMaliABI.h`.
 
 Do not expect a binary, a bundle or an installable artifact yet.
 
+## Verification
+
+Every push runs `.github/workflows/host-tests.yml`:
+
+- a macOS runner checks out `Dracen-W/Mali-G52` as `.kernel`, points
+  `MALI_G52_DIR` at it, and runs `tests/run.sh` and `tests/run.sh --san`;
+- a small Linux job fetches `metal2vulkan` at the revision in
+  `deps/deps.toml` and verifies the recorded hashes with `tools/deps.py`.
+
+Mesa is not fetched in CI (the tree is large). Verify it locally:
+
+```sh
+MALI_DEPS_DIR=/path/with/mesa-and-metal2vulkan tests/run.sh
+```
+
 ## Milestones
 
 The full checklists are in `docs/TODO.md`. The short form:
