@@ -117,6 +117,18 @@ NativeMaliError NativeMaliDevice::cpu_unmap(uint64_t handle, uint32_t token) {
 
 NativeMaliError NativeMaliDevice::submit(uint64_t job_chain, uint64_t wait_fence,
                                          uint64_t wait_timeout_ns, uint64_t *fence) {
+    if (wait_fence != 0) {
+        /* The ABI says a dependency is "zero or an earlier fence of this
+         * client". A fence we never received, or one a reset destroyed, must
+         * not be handed to the kernel as a dependency. */
+        const NativeMaliFenceState state = fences_.state(wait_fence);
+        if (state == NativeMaliFenceState::Lost) {
+            return NativeMaliError::DeviceLost;
+        }
+        if (state == NativeMaliFenceState::Unknown) {
+            return NativeMaliError::InvalidArgument;
+        }
+    }
     uint64_t submitted = 0;
     const NativeMaliError error =
         client_.submit(job_chain, wait_fence, wait_timeout_ns, &submitted);

@@ -155,6 +155,12 @@ int main() {
     expect(iova.quarantine_count() == 0, "quarantined range released after the wait");
     expect(iova.free_bytes() == 0x10000, "whole range free again");
 
+    /* A dependency must be a fence this client received and still owns. */
+    uint64_t unused_fence = 0;
+    expect(device.submit(0x20000, 0xDEAD, 0, &unused_fence) ==
+               NativeMaliError::InvalidArgument,
+           "unknown dependency fence refused");
+
     /* Waiting on a fence this client never submitted is a caller bug. */
     expect(device.wait(0xDEAD, 0) == NativeMaliError::InvalidArgument,
            "wait on an unknown fence is refused");
@@ -196,9 +202,11 @@ int main() {
     expect(fences.state(fence) == NativeMaliFenceState::Signaled,
            "an already signaled fence keeps its outcome");
 
-    /* A lost fence cannot be revived by a successful wait. */
+    /* A lost fence cannot be revived, nor used as a dependency. */
     expect(device.wait(pending_fence, 0) == NativeMaliError::DeviceLost,
            "waiting on a lost fence reports device lost");
+    expect(device.submit(0x20000, pending_fence, 0, &fence) == NativeMaliError::DeviceLost,
+           "a lost dependency is refused as device lost");
 
     /* Allocation rollback: the service returns a handle the record refuses. */
     transport.fixed_handle = true;
