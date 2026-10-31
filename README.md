@@ -61,6 +61,9 @@ It is **not**:
 This port is only possible because of **AdrenoMetal** by the UniXNU project:
 
 - Official repository: <https://github.com/UniXNU/AdrenoMetal>
+- Pinned revision: [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3)
+  (2026-10-25). The file map in `docs/PORTING.md` and the credit below are
+  anchored to this revision, not to a moving branch.
 - Licence: MIT, Copyright (c) 2026 NativeMetal contributors
 - Architecture and reusable frontend: the Metal API frontend
   (`NativeBridgeMetalFrontend.mm`), the Metal-object C ABI
@@ -77,8 +80,9 @@ work, not a claim of affiliation.
 
 A local reference copy lives in `AdrenoMetal-reference/` for development only.
 It is gitignored and is never committed, built into the product, or presented
-as part of this repository. Every derived file keeps the MIT header and names
-its origin; the full attribution is in `NOTICE`.
+as part of this repository. It was verified byte-for-byte against the pinned
+commit on 2026-10-31. Every derived file keeps the MIT header and names its
+origin; the full attribution is in `NOTICE`.
 
 ## Why AdrenoMetal cannot be used unchanged
 

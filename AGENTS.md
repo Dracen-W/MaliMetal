@@ -52,6 +52,9 @@ page-table, power, clock and ABI fact.
 - **Licences.** New files are `GPL-2.0-only`. Files derived from MIT material
   keep their MIT header and are recorded in `NOTICE`. `metal2vulkan` is linked
   unmodified under its own dual licence. Mesa stays MIT with its headers.
+- **Pin the AdrenoMetal credit.** Credit and porting references name commit
+  `ce5e19e33e05e1873d38d818e23cabfe0ac708c3`, not `main`. If the credit or the
+  porting map is updated, record the new commit with the same evidence.
 - **DTB wins over prose** when they disagree. Record the conflict and the
   decision in `Mali-G52/docs/OPEN_QUESTIONS.md`, not in a code comment that
   contradicts the device tree.

@@ -8,7 +8,7 @@ claim a reproducible build, and what each dependency is allowed to contribute.
 
 | Dependency | Role | Licence | State |
 | --- | --- | --- | --- |
-| **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | reference copy present; commit not pinned |
+| **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3) |
 | **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | commit not pinned |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | commit not pinned; fork/patch policy open |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; commit not recorded here |
@@ -23,9 +23,20 @@ AdrenoMetal is the upstream project this port is derived from:
 ```text
 AdrenoMetal
 https://github.com/UniXNU/AdrenoMetal
+Pinned revision: ce5e19e33e05e1873d38d818e23cabfe0ac708c3
+https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3
 MIT License
 Copyright (c) 2026 NativeMetal contributors
 ```
+
+The revision above is the one the porting map and file references were checked
+against. It is a fixed commit, not `main`: a later AdrenoMetal change does not
+silently change what this repository claims to be derived from. The local
+reference copy was verified byte-for-byte against that commit on 2026-10-31
+(all 94 blobs match; `LICENSE` sha256
+`c51a32dfc2140d3d56f796a3a7010e574f2e3649b97c42e010303ad57f848265`). If the
+copy is refreshed, re-check it against the pinned commit and record the result
+rather than guessing.
 
 Its `README.md`, `AGENTS.md`, `NativeBridgeMetalFrontend.mm`,
 `bridge/NativeMetalObjects.*`, `bridge/NativeMetalBridge.*`, the offline wire

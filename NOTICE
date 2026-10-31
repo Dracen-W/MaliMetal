@@ -14,6 +14,8 @@ AdrenoMetal — the upstream project this port is based on
   AdrenoMetal
   Metal API frontend and metal2vulkan translation
   https://github.com/UniXNU/AdrenoMetal
+  Pinned revision: ce5e19e33e05e1873d38d818e23cabfe0ac708c3
+  https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3
 
   MIT License
   Copyright (c) 2026 NativeMetal contributors
@@ -28,6 +30,7 @@ AdrenoMetal — the upstream project this port is based on
   path, and the tests for those pieces.
 
   A local reference copy is kept in AdrenoMetal-reference/ for development.
+  It was verified byte-for-byte against the pinned revision on 2026-10-31.
   It is gitignored and is never committed, built into the product, or
   presented as part of this repository.
 

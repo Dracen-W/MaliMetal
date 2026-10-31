@@ -91,10 +91,26 @@ Decisions already taken. Reopening one requires new evidence and an entry in
 ## D8 — Attribute AdrenoMetal and every derived file
 
 - **Decision:** the official AdrenoMetal project is credited in `README.md` and
-  `NOTICE`; every derived file keeps its MIT header and names its origin.
+  `NOTICE`; every derived file keeps its MIT header and names its origin. The
+  credit is anchored to commit
+  [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3),
+  not to a moving branch.
 - **Why:** the frontend, C ABI, runtime integration and test style are
   AdrenoMetal's work. Attribution is both a licence condition and a matter of
   honesty.
 - **Consequence:** a file without a provenance header is not accepted. The
-  reference copy stays local and gitignored.
+  reference copy stays local and gitignored; it is verified against the pinned
+  commit before being used as a source.
+- **Date:** 2026-10-31.
+
+## D9 — AdrenoMetal credit is pinned to one commit
+
+- **Decision:** all AdrenoMetal references in this repository name
+  `ce5e19e33e05e1873d38d818e23cabfe0ac708c3`.
+- **Why:** "the current AdrenoMetal" is not a version. A porting map that points
+  at `main` would silently describe different files after an upstream change,
+  and the credit would no longer identify what was actually reused.
+- **Consequence:** when the credit or the porting map is updated, the new commit
+  must be recorded with the same evidence. A later upstream revision is not
+  assumed to be compatible.
 - **Date:** 2026-10-31.
