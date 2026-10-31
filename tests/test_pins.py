@@ -115,6 +115,21 @@ def main() -> int:
         if rejected in path.read_text(encoding="utf-8"):
             failures.append(f"{rel}: stale reference to the rejected Mesa pin")
 
+    # The AdrenoMetal credit is a licence condition, not decoration: it must
+    # stay pinned to the commit the porting map was checked against.
+    adreno = "ce5e19e33e05e1873d38d818e23cabfe0ac708c3"
+    for rel, text in (
+        ("README.md", readme),
+        ("NOTICE", notice),
+        ("docs/DEPENDENCIES.md", deps_md),
+        ("docs/PORTING.md", read("docs/PORTING.md")),
+    ):
+        check(adreno in text, f"{rel}: AdrenoMetal credit is not pinned to {adreno[:12]}")
+    check(
+        "MIT" in notice and "NativeMetal contributors" in notice,
+        "NOTICE does not reproduce the AdrenoMetal MIT attribution",
+    )
+
     # Every source file states its licence in an SPDX header. This is the cheap
     # guard for "always keep the licence and the credit": a copied file without
     # its header fails here before it is committed.
