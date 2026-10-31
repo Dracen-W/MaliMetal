@@ -6,6 +6,27 @@ the subset a Vulkan driver needs and where the current ABI does not line up with
 PanVK. It does not replace the header, and it must not be used to duplicate the
 records.
 
+## Header provenance
+
+This repository never carries a second copy of the header. The copy that the
+userspace code compiles against is generated:
+
+```sh
+python3 tools/sync-abi.py            # default: the sibling Mali-G52 checkout
+python3 tools/sync-abi.py --kernel /path/to/Mali-G52
+```
+
+It copies the header into `build/abi/` (gitignored) and refuses unless its
+sha256 equals the one in `deps/abi.sha256`. `--accept` records a new hash, but
+refuses when the ABI version or the last method selector also moved: that is an
+ABI decision for `Mali-G52`, not a hash bump.
+
+`src/native_mali/NativeMaliAbiTable.cpp` restates the selectors and record
+sizes as a table. It is checked two ways: `static_assert` against the pinned
+header, and a host test (`tests/test_abi_table.cpp`). If the kernel header
+changes shape, the build fails here before a malformed record reaches the
+service.
+
 The ABI is fixed-size, little-endian, ARM64-to-ARM64. Every method has exactly
 one input record and one output record, either of which may be absent. A
 mismatched size, version, method or flag is refused, never ignored. An output

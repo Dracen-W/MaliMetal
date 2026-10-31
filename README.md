@@ -107,7 +107,7 @@ speaks `NativeMaliABI.h`.
 | Repository scaffold, design, porting map | done |
 | Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136` |
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
-| Userspace `NativeMali` ABI client | not started |
+| Userspace `NativeMali` ABI client | started: v1 method table, host-tested; service call path not written |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal plugin / device publish | blocked on PanVK |
 | Metal self-test (compute, render, import) | blocked on device creation |
@@ -180,13 +180,17 @@ between those two models. The options and the evidence are in
 │   ├── PORTING.md             file-by-file reuse and fork map
 │   └── TODO.md                milestones, checklists and deliberate gaps
 ├── deps/deps.toml             machine-readable dependency pins
+├── deps/abi.sha256            sha256 of the canonical NativeMaliABI.h
 ├── patches/                   Mesa and metal2vulkan patch series (empty until MM3)
+├── src/native_mali/           ABI-side userspace code (method table so far)
+├── tests/                     host tests; tests/run.sh runs them all
 ├── tools/deps.py              pin verifier: fails on a wrong checkout
+├── tools/sync-abi.py          copies the pinned kernel header into build/abi
 ├── AdrenoMetal-reference/     local MIT reference, gitignored, never committed
 └── third_party/               local dependency checkouts, gitignored
 ```
 
-Planned source tree, once MM1 starts:
+Planned source tree; only `src/native_mali/NativeMaliAbiTable.*` exists so far:
 
 ```text
 src/plugin/      NativeMaliMetalPlugin.mm        discovery, publish, scanout

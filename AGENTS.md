@@ -70,17 +70,21 @@ page-table, power, clock and ABI fact.
 
 ## Build and verification
 
-There is no build yet. When MM1 starts, the repository must provide one command
-that:
+`tests/run.sh` is the host gate that exists today. It:
 
-- builds the host-testable parts without a phone or a GPU;
-- runs every host test;
-- builds the Mesa patch series and the `metal2vulkan` bridge with a recorded
-  toolchain;
-- refuses to produce a bundle if the pinned dependency hashes disagree.
+- runs `tools/deps.py selftest` and `tests/test_pins.py`;
+- runs `tools/sync-abi.py` to copy the pinned `NativeMaliABI.h` from
+  `Mali-G52` into `build/abi/`, and fails if the hash in `deps/abi.sha256`
+  disagrees;
+- builds and runs the compiler tests under `tests/` with the host `c++`.
 
-Do not invent a build command in the README before it exists. A documented
-command that cannot run is worse than an honest "not yet".
+It needs the sibling `Mali-G52` checkout (or `--kernel`), no phone and no GPU.
+With `MALI_DEPS_DIR` set it also verifies the Mesa and `metal2vulkan` checkouts.
+
+A full build — the Mesa patch series, the `metal2vulkan` bridge and the bundle —
+does not exist yet, so it is not documented. When it exists it must use
+`tools/deps.py verify --require-all` and refuse to produce a bundle if any pin
+disagrees. Do not invent a build command in the README before it exists.
 
 ## Commits
 

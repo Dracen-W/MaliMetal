@@ -21,7 +21,7 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 | **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3) |
 | **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `219f01365dc4c8eb346816c405b5b17403793764`; see below |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`; see below |
-| **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; commit not recorded here |
+| **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |
 | **Mesa build deps** | `libdrm` headers at build time, Python/mako for generated code, etc. | per package | not enumerated |
 | **Rust toolchain** | builds the bridge/runtime | per toolchain | not pinned; metal2vulkan requires Rust 1.98 |
 | **Clang / Objective-C++ toolchain** | plugin and frontend | per toolchain | not pinned |

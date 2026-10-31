@@ -34,18 +34,30 @@ here even when `git rev-parse HEAD` is right.
 
 ## When to re-pin
 
-Re-pin when one of these is true:
+**Cadence: once per Mesa major series, not per commit and not per point
+release.** A "major series" is the first two components of the version
+(`26.2`); a point release is the third (`26.2.6`). At adoption time, take the
+newest point release in that series, because it carries the fixes already
+backported to it. Then stay there.
 
-1. MM3 is about to start and the pin is older than the release the patch series
-   targets. (This already applies: the first pin was provisional.)
-2. A Mesa fix that the port needs has landed in a point release.
-3. The pin is unusable — build failure, a file the seam patches was renamed, or
+Re-pin when:
+
+1. A new major series is adopted (for example `26.2` → `26.3`/`27.0`).
+2. The pin is unusable — build failure, a file the seam patches was renamed, or
    the v7 gate changed in a way that matters.
-4. A security fix affects a component the port ships.
+3. A security fix affects a component the port ships and was not backported to
+   the pinned point release.
+4. MM3 is about to start and the pin is older than the series the patch series
+   targets.
+
+Everything else waits. A point-release bump inside the same major series is not
+a maintenance event on its own: it renumbers every line reference, invalidates
+the patches' context and costs a hardware re-verification, and it rarely buys
+anything the seam needs. If a point release really is needed, treat it as a
+normal re-pin (procedure below) and say why in the pin history.
 
 Do **not** re-pin per commit, "to stay current", or in the middle of a hardware
-bring-up. A re-pin invalidates every line reference in `docs/SEAM.md` and every
-patch context line; spend that budget when it buys something.
+bring-up.
 
 ## Rebase procedure
 
@@ -217,6 +229,24 @@ git -C AdrenoMetal-reference checkout ce5e19e33e05e1873d38d818e23cabfe0ac708c3
 If a newer AdrenoMetal commit is wanted, it is a new decision: record the commit
 and the verification in `docs/DECISIONS.md`, `NOTICE`, `README.md` and
 `docs/PORTING.md`, and re-run the tests. Never mix "refresh" with "port".
+
+## When the kernel ABI header changes
+
+`deps/abi.sha256` pins the sha256 of `Mali-G52/NativeMaliABI.h` and the ABI
+version/method markers. `tests/run.sh` runs `tools/sync-abi.py`, which fails
+when the file drifts.
+
+1. Read the kernel diff first. It belongs to `Mali-G52`; do not edit the
+   canonical header from here.
+2. If the change is additive and does not move `NativeMaliAbiVersion` or
+   `NativeMaliMethodLast` (the `Reset` selector was added that way), update the
+   hash with `python3 tools/sync-abi.py --accept`, re-run `tests/run.sh`, and
+   record the change in `docs/DEPENDENCIES.md`.
+3. If the version or the last selector moved, `--accept` refuses. That is the
+   intended behaviour: it is an ABI break, and it needs a decision in
+   `Mali-G52`, a client change here and a note in `docs/DECISIONS.md`.
+4. If a record's size changed, `NativeMaliAbiTable.cpp` fails to compile. Do not
+   paper over it with a cast: the table is the userspace half of the contract.
 
 ## If a re-pin goes wrong
 

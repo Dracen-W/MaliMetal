@@ -55,9 +55,13 @@ gaps immediately, so the kernel must be proven first.
 
 This is pure logic and must be testable without a phone.
 
-- [ ] Method dispatch table for the records in `NativeMaliABI.h` (methods 1–11),
+- [x] Method dispatch table for the records in `NativeMaliABI.h` (methods 1–11),
       with exact sizes and untouched output on failure, mirroring
       `NativeMaliUserClient::dispatch()`.
+      Done for the selector/record-size half (`NativeMaliAbiTable`, host-tested);
+      the service call and output-untouched rule come with the client itself.
+- [ ] Userspace client call path: build the record, call the service, leave the
+      output untouched on failure.
 - [ ] Error mapping: `kIOReturn*` → a small internal error enum → Vulkan
       (`VK_ERROR_DEVICE_LOST`, `VK_ERROR_OUT_OF_DEVICE_MEMORY`, ...).
 - [ ] BO table: handle, size, IOVA, permissions, CPU token, lifetime.

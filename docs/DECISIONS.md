@@ -175,5 +175,7 @@ Decisions already taken. Reopening one requires new evidence and an entry in
   mechanical version bump is exactly where a silent semantic change hides. A
   human who reads the diff is cheaper than a GPU hang on the phone.
 - **Consequence:** `deps/deps.toml` and the docs are edited together, in a commit
-  that changes no behaviour, before the patch series is rebased.
+  that changes no behaviour, before the patch series is rebased. The cadence is
+  one re-pin per Mesa major series (`26.2`, `26.3`, ...), taking the newest point
+  release of that series; point releases are not tracked individually.
 - **Date:** 2026-10-31.

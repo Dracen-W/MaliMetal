@@ -161,6 +161,64 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def run_git(args: list[str], cwd: Path | None = None) -> None:
+    cmd = ["git"] + (["-C", str(cwd)] if cwd else []) + args
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+
+
+def cmd_fetch(args: argparse.Namespace) -> int:
+    """Clone each pinned dependency at its exact revision into --dest.
+
+    This is a convenience for a fresh machine, not an automated re-pin: it only
+    ever fetches the revision written in deps/deps.toml.
+    """
+    deps = load_pins(Path(args.pin))
+    known = {dep.id for dep in deps}
+    wanted = set(args.id or [])
+    unknown = wanted - known
+    if unknown:
+        print(f"FAIL: unknown dependency {', '.join(sorted(unknown))}")
+        return 1
+
+    dest = Path(args.dest).expanduser().resolve()
+    dest.mkdir(parents=True, exist_ok=True)
+
+    failed = False
+    for dep in deps:
+        if wanted and dep.id not in wanted:
+            continue
+        target = dest / dep.id
+        if target.exists():
+            print(f"SKIP {dep.id}: {target} already exists (verify it instead)")
+            continue
+        print(f"FETCH {dep.id}: {dep.repository} @ {dep.revision[:12]}")
+        try:
+            run_git(["init", "--quiet", str(target)])
+            run_git(["remote", "add", "origin", dep.repository], target)
+            try:
+                run_git(["fetch", "--quiet", "--depth", "1", "origin", dep.revision], target)
+            except subprocess.CalledProcessError:
+                if not dep.tag:
+                    raise
+                run_git(["fetch", "--quiet", "--depth", "1", "origin", dep.tag], target)
+            run_git(["checkout", "--quiet", "--detach", "FETCH_HEAD"], target)
+        except (OSError, subprocess.CalledProcessError) as error:
+            failed = True
+            print(f"FAIL {dep.id}: fetch failed: {error}")
+            continue
+
+        problems = verify_dependency(dep, target)
+        if problems:
+            failed = True
+            print(f"FAIL {dep.id} after fetch")
+            for problem in problems:
+                print(f"  {problem}")
+        else:
+            print(f"OK   {dep.id} {dep.revision}")
+
+    return 1 if failed else 0
+
+
 def cmd_selftest(_args: argparse.Namespace) -> int:
     """Exercise verify_dependency without git and without a real dependency."""
     failures: list[str] = []
@@ -235,6 +293,23 @@ def main(argv: list[str]) -> int:
 
     selftest = sub.add_parser("selftest", help="run the tool's own tests")
     selftest.set_defaults(func=cmd_selftest)
+
+    fetch = sub.add_parser(
+        "fetch", help="clone pinned dependencies at their exact revisions"
+    )
+    fetch.add_argument(
+        "--dest",
+        default=str(Path(__file__).resolve().parent.parent / "third_party"),
+        help="destination directory (default: third_party/)",
+    )
+    fetch.add_argument(
+        "--id",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="fetch only this dependency, repeatable",
+    )
+    fetch.set_defaults(func=cmd_fetch)
 
     args = parser.parse_args(argv)
     return args.func(args)
