@@ -156,5 +156,28 @@ NativeMaliError NativeMaliDevice::reset() {
     }
     fences_.lose_all();
     iova_.release_all();
+    /* The counters changed by definition; re-read a baseline on the next
+     * refresh instead of comparing against the pre-reset reading. */
+    status_valid_ = false;
+    device_lost_ = false;
     return NativeMaliError::None;
+}
+
+NativeMaliError NativeMaliDevice::refresh_status() {
+    NativeMaliAbiStatus status{};
+    const NativeMaliError error = client_.status(&status);
+    if (error != NativeMaliError::None) {
+        return error;
+    }
+    if (status_valid_ &&
+        (status.faults != last_status_.faults || status.resets != last_status_.resets)) {
+        /* Monotonic counters: any change means the context that owned the
+         * in-flight work is gone. Do not compare fences; they are opaque. */
+        fences_.lose_all();
+        iova_.release_all();
+        device_lost_ = true;
+    }
+    last_status_ = status;
+    status_valid_ = true;
+    return device_lost_ ? NativeMaliError::DeviceLost : NativeMaliError::None;
 }

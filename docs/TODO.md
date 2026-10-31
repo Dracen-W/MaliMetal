@@ -85,8 +85,12 @@ This is pure logic and must be testable without a phone.
       IOVA quarantine, `wait` that only resolves on a successful `WaitFence`, and
       `reset` that loses pending fences and releases quarantined ranges while
       keeping buffers and mappings (`NativeMaliDevice`, host-tested).
-- [ ] Fault detection: poll `GetStatus::faults/resets`, and when it changes,
-      mark pending fences Lost and report `DeviceLost` instead of retrying.
+- [x] Fault detection: `NativeMaliDevice::refresh_status()` reads
+      `GetStatus::faults/resets`, and when either changes it marks pending
+      fences Lost, releases quarantined IOVAs and reports `DeviceLost` until a
+      successful `reset()`. The first reading is only a baseline. The caller
+      owns the polling cadence; the test covers fault, reset-counter change and
+      re-baseline.
 - [ ] Device-info cache: `gpu_id`, present masks, thread limits, feature words,
       non-coherent flag, VA size.
 - [ ] Fake service for tests that answers records from a scripted state, not

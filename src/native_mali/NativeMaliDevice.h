@@ -52,6 +52,15 @@ public:
      * quarantined ranges return to the allocator. */
     NativeMaliError wait(uint64_t fence, uint64_t timeout_ns);
 
+    /* Read GetStatus and compare it with the previous reading. Any change in
+     * `faults` or `resets` means in-flight work is gone: pending fences become
+     * Lost, quarantined IOVAs are released, and DeviceLost is reported. The
+     * first call only records a baseline. */
+    NativeMaliError refresh_status();
+
+    /* True once a fault or reset has been observed, until reset() succeeds. */
+    bool device_lost() const { return device_lost_; }
+
     /* Device-wide recovery: every pending fence is Lost, quarantined IOVAs are
      * released, buffers and mappings stay valid (NativeMaliABI.h, Reset). */
     NativeMaliError reset();
@@ -61,6 +70,9 @@ private:
     NativeMaliBoTable &buffers_;
     NativeMaliIovaAllocator &iova_;
     NativeMaliFenceTracker &fences_;
+    NativeMaliAbiStatus last_status_{};
+    bool status_valid_ = false;
+    bool device_lost_ = false;
 };
 
 #endif /* MALIMETAL_NATIVE_MALI_DEVICE_H */

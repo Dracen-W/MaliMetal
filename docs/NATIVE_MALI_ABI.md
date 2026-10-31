@@ -68,7 +68,11 @@ later successful wait.
 - `wait` marks the fence `Signaled` and releases its quarantined ranges only
   when `WaitFence` succeeded;
 - `reset` loses pending fences and releases quarantined ranges, and keeps the
-  buffers and mappings, as the header says `Reset` does.
+  buffers and mappings, as the header says `Reset` does;
+- `refresh_status` reads `GetStatus` and compares it with the previous reading:
+  any change in `faults` or `resets` loses pending fences, releases quarantined
+  IOVAs and reports `DeviceLost` until a reset succeeds. The first reading is a
+  baseline only, and the caller owns the polling cadence.
 
 Every one of those paths is covered by `tests/test_device_lifecycle.cpp`,
 including the rollbacks and the "lost fence cannot be revived" case.

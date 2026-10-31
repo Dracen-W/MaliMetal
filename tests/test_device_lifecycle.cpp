@@ -38,6 +38,8 @@ struct FakeTransport final : NativeMaliTransport {
     unsigned map_calls = 0;
     unsigned wait_calls = 0;
     unsigned reset_calls = 0;
+    uint64_t status_faults = 0;
+    uint64_t status_resets = 0;
 
     int call(uint32_t selector, const void *input, size_t, void *output, size_t) override {
         switch (selector) {
@@ -75,6 +77,12 @@ struct FakeTransport final : NativeMaliTransport {
             }
             case NativeMaliMethodReset: {
                 ++reset_calls;
+                return 0;
+            }
+            case NativeMaliMethodGetStatus: {
+                auto *reply = static_cast<NativeMaliAbiStatus *>(output);
+                reply->faults = status_faults;
+                reply->resets = status_resets;
                 return 0;
             }
             default:
@@ -220,6 +228,40 @@ int main() {
 
     /* A buffer this client does not know cannot be freed. */
     expect(device.free(0x999, 0) == NativeMaliError::InvalidArgument, "unknown free refused");
+
+    /* Fault detection: the first reading is only a baseline. Any later change
+     * to faults or resets means in-flight work is gone. */
+    expect(iova.quarantine_count() == 0, "no quarantine before the fault check");
+    expect(device.refresh_status() == NativeMaliError::None, "first status reading is a baseline");
+    expect(!device.device_lost(), "no fault yet");
+
+    uint64_t fault_fence = 0;
+    expect(device.submit(0x20100, 0, 0, &fault_fence) == NativeMaliError::None,
+           "submit before the fault");
+    uint64_t fault_handle = 0;
+    expect(device.alloc(kSize, &fault_handle) == NativeMaliError::None, "alloc before the fault");
+    expect(device.map(fault_handle, NativeMaliBoRead, &mapped) == NativeMaliError::None,
+           "map before the fault");
+    expect(device.free(fault_handle, fault_fence) == NativeMaliError::None,
+           "guarded free before the fault");
+    expect(iova.quarantine_count() == 1, "range quarantined before the fault");
+
+    transport.status_faults = 1;
+    expect(device.refresh_status() == NativeMaliError::DeviceLost, "a fault is reported");
+    expect(device.device_lost(), "device is marked lost");
+    expect(fences.state(fault_fence) == NativeMaliFenceState::Lost,
+           "pending fence lost on fault");
+    expect(iova.quarantine_count() == 0, "quarantine released on fault");
+    expect(device.refresh_status() == NativeMaliError::DeviceLost,
+           "the device stays lost until reset");
+
+    expect(device.reset() == NativeMaliError::None, "reset after the fault");
+    expect(!device.device_lost(), "reset clears the lost state");
+    expect(device.refresh_status() == NativeMaliError::None, "the status is re-baselined");
+
+    transport.status_resets = 1;
+    expect(device.refresh_status() == NativeMaliError::DeviceLost,
+           "a reset counter change is reported as device lost");
 
     if (failures != 0) {
         std::fprintf(stderr, "%d check(s) failed\n", failures);
