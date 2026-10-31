@@ -82,6 +82,8 @@ page-table, power, clock and ABI fact.
 
 It needs the sibling `Mali-G52` checkout (or `--kernel`), no phone and no GPU.
 With `MALI_DEPS_DIR` set it also verifies the Mesa and `metal2vulkan` checkouts.
+`tests/run.sh --san` runs the same suite under AddressSanitizer and UBSan; use it
+for anything that touches the buffer records, the allocator or the fence table.
 
 A full build — the Mesa patch series, the `metal2vulkan` bridge and the bundle —
 does not exist yet, so it is not documented. When it exists it must use

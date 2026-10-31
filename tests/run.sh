@@ -3,7 +3,8 @@
 #
 # Host checks that need neither a phone nor a GPU.
 #
-#   tests/run.sh
+#   tests/run.sh          build and run every host test
+#   tests/run.sh --san    the same with AddressSanitizer + UBSan
 #
 # Dependency checkouts are optional here. To include them:
 #
@@ -18,6 +19,38 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
 
+sanitize=0
+case "${1:-}" in
+    "") ;;
+    --san) sanitize=1 ;;
+    *)
+        printf 'usage: %s [--san]\n' "$0" >&2
+        exit 2
+        ;;
+esac
+
+cxxflags="-std=c++17 -Wall -Wextra -Werror"
+if [ "$sanitize" -eq 1 ]; then
+    cxxflags="$cxxflags -g -fsanitize=address,undefined -fno-omit-frame-pointer"
+fi
+
+# compile <output> <sources...>
+compile() {
+    output=$1
+    shift
+    # shellcheck disable=SC2086 # cxxflags is a deliberate flag list
+    "${CXX:-c++}" $cxxflags -Ibuild/abi -Isrc/native_mali -Isrc/transport -Itests \
+        "$@" -o "$output"
+}
+
+# run <name> <sources...>
+run_test() {
+    name=$1
+    shift
+    compile "build/tests/$name" "$@"
+    "build/tests/$name"
+}
+
 python3 tools/deps.py selftest
 python3 tests/test_pins.py
 
@@ -25,59 +58,36 @@ python3 tests/test_pins.py
 # compile the host-testable userspace code against exactly that copy.
 python3 tools/sync-abi.py
 mkdir -p build/tests
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliAbiTable.cpp tests/test_abi_table.cpp \
-    -o build/tests/test_abi_table
-build/tests/test_abi_table
 
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliAbiTable.cpp src/native_mali/NativeMaliClient.cpp \
-    tests/test_native_mali_client.cpp -o build/tests/test_native_mali_client
-build/tests/test_native_mali_client
+abi_sources="src/native_mali/NativeMaliAbiTable.cpp"
+client_sources="$abi_sources src/native_mali/NativeMaliClient.cpp"
+lifecycle_sources="$client_sources src/native_mali/NativeMaliBoTable.cpp \
+src/native_mali/NativeMaliIovaAllocator.cpp src/native_mali/NativeMaliFenceTracker.cpp \
+src/native_mali/NativeMaliDevice.cpp"
 
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliIovaAllocator.cpp tests/test_iova_allocator.cpp \
-    -o build/tests/test_iova_allocator
-build/tests/test_iova_allocator
-
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliBoTable.cpp tests/test_bo_table.cpp \
-    -o build/tests/test_bo_table
-build/tests/test_bo_table
-
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
-    src/native_mali/NativeMaliBoTable.cpp src/native_mali/NativeMaliIovaAllocator.cpp \
-    src/native_mali/NativeMaliFenceTracker.cpp src/native_mali/NativeMaliDevice.cpp \
-    tests/test_device_lifecycle.cpp -o build/tests/test_device_lifecycle
-build/tests/test_device_lifecycle
-
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali \
-    src/native_mali/NativeMaliFenceTracker.cpp tests/test_fence_tracker.cpp \
-    -o build/tests/test_fence_tracker
-build/tests/test_fence_tracker
-
-"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-    -Ibuild/abi -Isrc/native_mali -Itests \
-    src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
-    src/native_mali/NativeMaliBoTable.cpp src/native_mali/NativeMaliIovaAllocator.cpp \
-    src/native_mali/NativeMaliFenceTracker.cpp src/native_mali/NativeMaliDevice.cpp \
-    tests/test_fake_service.cpp -o build/tests/test_fake_service
-build/tests/test_fake_service
+# shellcheck disable=SC2086 # the source lists are deliberate word lists
+run_test test_abi_table $abi_sources tests/test_abi_table.cpp
+# shellcheck disable=SC2086
+run_test test_native_mali_client $client_sources tests/test_native_mali_client.cpp
+# shellcheck disable=SC2086
+run_test test_iova_allocator src/native_mali/NativeMaliIovaAllocator.cpp \
+    tests/test_iova_allocator.cpp
+# shellcheck disable=SC2086
+run_test test_bo_table src/native_mali/NativeMaliBoTable.cpp tests/test_bo_table.cpp
+# shellcheck disable=SC2086
+run_test test_fence_tracker src/native_mali/NativeMaliFenceTracker.cpp \
+    tests/test_fence_tracker.cpp
+# shellcheck disable=SC2086
+run_test test_device_lifecycle $lifecycle_sources tests/test_device_lifecycle.cpp
+# shellcheck disable=SC2086
+run_test test_fake_service $lifecycle_sources tests/test_fake_service.cpp
 
 if [ "$(uname -s)" = Darwin ]; then
-    "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
-        -Ibuild/abi -Isrc/native_mali -Isrc/transport \
+    # shellcheck disable=SC2086
+    compile build/tests/test_iokit_transport \
         src/transport/NativeMaliIokitTransport.cpp \
         src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
-        tests/test_iokit_transport.cpp -framework IOKit \
-        -o build/tests/test_iokit_transport
+        tests/test_iokit_transport.cpp -framework IOKit
     build/tests/test_iokit_transport
 else
     printf '%s\n' "SKIP iokit transport: not an Apple platform"
