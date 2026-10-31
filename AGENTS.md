@@ -56,7 +56,9 @@ page-table, power, clock and ABI fact.
   keep their MIT header and are recorded in `NOTICE`. `metal2vulkan` is linked
   unmodified under `GPL-2.0-or-later OR LGPL-3.0-or-later` — **not MIT** — and
   this repository elects the GPL-2.0-or-later option under GPLv2. Mesa stays MIT
-  with its headers.
+  with its headers. Every source file carries an `SPDX-License-Identifier`
+  header; `tests/test_pins.py` enforces it. `LICENSE` is the canonical GPL-2.0
+  text and must not be edited.
 - **Never edit a hash to make a check pass.** `python3 tools/deps.py verify` is
   the gate. A mismatch means the tree moved or the pin is wrong; follow
   `docs/MAINTENANCE.md` and record the new pin in the same commit that changes

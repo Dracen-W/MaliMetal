@@ -31,6 +31,12 @@ mkdir -p build/tests
     -o build/tests/test_abi_table
 build/tests/test_abi_table
 
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
+    -Ibuild/abi -Isrc/native_mali \
+    src/native_mali/NativeMaliAbiTable.cpp src/native_mali/NativeMaliClient.cpp \
+    tests/test_native_mali_client.cpp -o build/tests/test_native_mali_client
+build/tests/test_native_mali_client
+
 if [ -n "${MALI_DEPS_DIR:-}" ]; then
     python3 tools/deps.py verify --require-all \
         --checkout "mesa=$MALI_DEPS_DIR/mesa" \

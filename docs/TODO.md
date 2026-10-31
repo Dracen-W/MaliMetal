@@ -60,10 +60,13 @@ This is pure logic and must be testable without a phone.
       `NativeMaliUserClient::dispatch()`.
       Done for the selector/record-size half (`NativeMaliAbiTable`, host-tested);
       the service call and output-untouched rule come with the client itself.
-- [ ] Userspace client call path: build the record, call the service, leave the
-      output untouched on failure.
+- [x] Userspace client call path: build the record, call the service, leave the
+      output untouched on failure. Query, GetDeviceInfo, GetStatus and Reset are
+      done and host-tested; BO and fence methods need their state machines first.
 - [ ] Error mapping: `kIOReturn*` → a small internal error enum → Vulkan
       (`VK_ERROR_DEVICE_LOST`, `VK_ERROR_OUT_OF_DEVICE_MEMORY`, ...).
+      The kernel→internal half exists; the internal→Vulkan half belongs to the
+      backend layer.
 - [ ] BO table: handle, size, IOVA, permissions, CPU token, lifetime.
 - [ ] IOVA allocator: alignment, first-fit/buddy, no overlap, no reuse while a
       submitted job may still reference the range. Host-tested.

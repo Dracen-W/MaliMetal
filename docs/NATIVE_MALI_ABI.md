@@ -27,6 +27,14 @@ header, and a host test (`tests/test_abi_table.cpp`). If the kernel header
 changes shape, the build fails here before a malformed record reaches the
 service.
 
+`src/native_mali/NativeMaliClient.{h,cpp}` is the call path above the table: it
+validates the selector and sizes, calls a `NativeMaliTransport` (the IOConnect
+call on the phone, a scripted fake in tests), maps `kIOReturn*` onto a small
+internal error enum, and leaves the caller's output untouched unless the call
+succeeded. `Query` also refuses a reply whose ABI version or `max_bo_bytes`
+disagrees with the header. `tests/test_native_mali_client.cpp` covers the
+success path, every refusal and the untouched-output rule.
+
 The ABI is fixed-size, little-endian, ARM64-to-ARM64. Every method has exactly
 one input record and one output record, either of which may be absent. A
 mismatched size, version, method or flag is refused, never ignored. An output

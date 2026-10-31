@@ -115,6 +115,20 @@ def main() -> int:
         if rejected in path.read_text(encoding="utf-8"):
             failures.append(f"{rel}: stale reference to the rejected Mesa pin")
 
+    # Every source file states its licence in an SPDX header. This is the cheap
+    # guard for "always keep the licence and the credit": a copied file without
+    # its header fails here before it is committed.
+    source_suffixes = {".py", ".sh", ".c", ".cc", ".cpp", ".h", ".hpp", ".mm", ".m", ".rs"}
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or path.suffix not in source_suffixes:
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        if rel.startswith(("AdrenoMetal-reference/", "build/", "third_party/")):
+            continue
+        head = "\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[:8])
+        if "SPDX-License-Identifier:" not in head:
+            failures.append(f"{rel}: no SPDX-License-Identifier in the first 8 lines")
+
     if failures:
         for failure in failures:
             print(f"FAIL {failure}")
