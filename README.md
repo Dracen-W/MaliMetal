@@ -107,7 +107,7 @@ speaks `NativeMaliABI.h`.
 | Repository scaffold, design, porting map | done |
 | Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136` |
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
-| Userspace `NativeMali` ABI client | complete for v1: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
+| Userspace `NativeMali` ABI client | **MM2 complete for v1**: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal plugin / device publish | blocked on PanVK |
 | Metal self-test (compute, render, import) | blocked on device creation |
@@ -174,6 +174,7 @@ between those two models. The options and the evidence are in
 │   ├── ARCHITECTURE.md        layers, contracts, data flow, seam options
 │   ├── DECISIONS.md           decisions already taken and why
 │   ├── DEPENDENCIES.md        what is pinned, what is still floating
+│   ├── INTEGRATION.md         kernel-side prerequisites and the interfaces we expose
 │   ├── MAINTENANCE.md         re-pin and rebase procedure, failure modes
 │   ├── NATIVE_MALI_ABI.md     the subset of the kernel ABI this port needs
 │   ├── OPEN_QUESTIONS.md      what needs a human answer or hardware

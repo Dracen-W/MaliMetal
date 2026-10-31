@@ -19,9 +19,11 @@ page-table, power, clock and ABI fact.
 6. `docs/NATIVE_MALI_ABI.md` — the kernel ABI subset this port needs.
 7. `docs/PORTING.md` — which AdrenoMetal file is reused, forked or replaced.
 8. `docs/DEPENDENCIES.md` and `deps/deps.toml` — every pinned revision and hash.
-9. `docs/MAINTENANCE.md` — the re-pin/rebase procedure; follow it before moving
-   a dependency.
-10. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
+9. `docs/INTEGRATION.md` — what the kernel side must provide and the interfaces
+   this repository exposes to it.
+10. `docs/MAINTENANCE.md` — the re-pin/rebase procedure; follow it before moving
+    a dependency.
+11. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
     `NativeMaliABI.h` and the header of every ABI method used.
 
 ## Non-negotiable rules

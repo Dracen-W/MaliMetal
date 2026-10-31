@@ -68,10 +68,9 @@ This is pure logic and must be testable without a phone.
       the 64-byte chain alignment, and reply consistency (version, BO limit,
       echoed IOVA, nonzero handle/token/fence). Host-tested with a fake
       transport.
-- [ ] Error mapping: `kIOReturn*` → a small internal error enum → Vulkan
-      (`VK_ERROR_DEVICE_LOST`, `VK_ERROR_OUT_OF_DEVICE_MEMORY`, ...).
-      The kernel→internal half exists; the internal→Vulkan half belongs to the
-      backend layer.
+- [x] Error mapping: `kIOReturn*` → the internal enum (`NativeMaliError`,
+      host-tested, one vocabulary shared by transport, client and lifecycle).
+      The internal→Vulkan half needs the backend and is tracked in MM3.
 - [x] BO table: handle, size, IOVA, permissions, CPU token, lifetime
       (`NativeMaliBoTable`, host-tested: duplicates, double map, bad IOVA,
       write-without-read, token mismatch, capacity refusal).
@@ -107,11 +106,16 @@ This is pure logic and must be testable without a phone.
       IOVA, double map, unmap-while-busy, fence from another client, reset
       during wait.
 
+**Status: complete for v1.** The kernel-side prerequisites and the interfaces
+this milestone exposes are in `docs/INTEGRATION.md`.
+
 ## MM3 — `pan_kmod` seam
 
 Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2 (Option A) and on
 the pinned Mesa base in `docs/DEPENDENCIES.md`.
 
+- [ ] Map `NativeMaliError` onto `VkResult` in the backend (the client half is
+      already done in MM2).
 - [ ] Add the chosen backend to the pinned Mesa tree via `patches/`.
 - [ ] Replace the JM submission call: a `pan_kmod` submit op instead of
       `pan_kmod_ioctl(DRM_IOCTL_PANFROST_SUBMIT)`, including the BO list,
