@@ -67,9 +67,12 @@ This is pure logic and must be testable without a phone.
       (`VK_ERROR_DEVICE_LOST`, `VK_ERROR_OUT_OF_DEVICE_MEMORY`, ...).
       The kernel→internal half exists; the internal→Vulkan half belongs to the
       backend layer.
-- [ ] BO table: handle, size, IOVA, permissions, CPU token, lifetime.
-- [ ] IOVA allocator: alignment, first-fit/buddy, no overlap, no reuse while a
-      submitted job may still reference the range. Host-tested.
+- [x] BO table: handle, size, IOVA, permissions, CPU token, lifetime
+      (`NativeMaliBoTable`, host-tested: duplicates, double map, bad IOVA,
+      write-without-read, token mismatch, capacity refusal).
+- [x] IOVA allocator: alignment, first-fit, no overlap, no reuse while a
+      submitted job may still reference the range (quarantine until the exact
+      fence completes, `release_all` on reset). Host-tested.
 - [ ] Fence tracker: opaque fences, dependency waits, timeout, reset
       invalidation, `GetStatus::faults/resets` changes.
 - [ ] Device-info cache: `gpu_id`, present masks, thread limits, feature words,

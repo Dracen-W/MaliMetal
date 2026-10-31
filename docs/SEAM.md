@@ -187,6 +187,11 @@ quarantined range only after the fence completes. If the fence is lost to a
 reset, release the range because the GPU can no longer access the old AS state;
 record that decision in a test.
 
+Status: implemented as `src/native_mali/NativeMaliIovaAllocator.{h,cpp}` and
+host-tested (`tests/test_iova_allocator.cpp`): first fit, merge on release,
+exact-size free only, quarantine by fence equality, `release_all()` on reset.
+It is pure logic and makes no kernel call; the backend wires it to `BoMap`.
+
 The allocator must not use the whole 48-bit space blindly. `Query` reports the
 usable VA size; use it.
 

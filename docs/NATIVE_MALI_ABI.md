@@ -35,6 +35,18 @@ succeeded. `Query` also refuses a reply whose ABI version or `max_bo_bytes`
 disagrees with the header. `tests/test_native_mali_client.cpp` covers the
 success path, every refusal and the untouched-output rule.
 
+`src/native_mali/NativeMaliIovaAllocator.{h,cpp}` is the address allocator the
+ABI expects userspace to supply: 4 KiB granularity, nonzero addresses, first fit
+over a sorted free list, merging on release. A range freed while a job may still
+read it is quarantined behind that exact fence (fences are opaque, so matching is
+by equality) and released only when the fence completes or the device resets.
+
+`src/native_mali/NativeMaliBoTable.{h,cpp}` is the fixed-capacity record of the
+buffers this client owns: opaque handle, size, IOVA, permissions and CPU token.
+It refuses a duplicate handle, a second mapping, an unaligned or zero IOVA, a
+write-only mapping (the header requires read), an unknown permission bit, a
+token that does not match, and a full table.
+
 The ABI is fixed-size, little-endian, ARM64-to-ARM64. Every method has exactly
 one input record and one output record, either of which may be absent. A
 mismatched size, version, method or flag is refused, never ignored. An output
