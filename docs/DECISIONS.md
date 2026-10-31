@@ -155,13 +155,20 @@ Decisions already taken. Reopening one requires new evidence and an entry in
 ## D12 — metal2vulkan is pinned and used under GPL-2.0-or-later
 
 - **Decision:** `metal2vulkan` is pinned to commit
-  `219f01365dc4c8eb346816c405b5b17403793764` (2026-10-29) and is used under its
+  `720ef1ce9ae2a2068999a8675717418b9416283e` (2026-10-14), the translator commit
+  UniXNU qualifies in `scripts/data/gpu-metal-vulkan-inputs.json`, and is used
+  under its
   `GPL-2.0-or-later` option, elected as GPLv2, so the combined work remains
   GPL-2.0-only. The `LGPL-3.0-or-later` option is not used.
 - **Why:** that is its actual licence (`Cargo.toml`, `LICENSE`, both checked at
   the pinned commit). An MIT assumption was considered and rejected: it is not
   MIT, and the crates.io release `0.1.0` is LGPL-3.0-or-later only, so the git
   tree is what must be pinned. LGPLv3 cannot be combined with a GPLv2-only work.
+- **Why this commit:** the newer tip `219f0136` builds the translator and runtime
+  but **cannot compile AdrenoMetal's bridge**, with or without the patches that
+  apply to it. `720ef1c` is the base the 16-patch series applies to cleanly, and
+  it is the commit UniXNU's input record qualifies. Pinning the tip looked
+  current but was wrong.
 - **Consequence:** a permissively licensed MaliMetal is not possible while this
   runtime is linked in. If that changes, it is an explicit decision (separate
   process, different runtime, or relicensing), never a silent SPDX edit.

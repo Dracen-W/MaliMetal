@@ -31,8 +31,9 @@ gaps immediately, so the kernel must be proven first.
 ## MM1 — pin dependencies
 
 - [x] Pin `metal2vulkan` to a commit and record the hashes and licence in
-      `docs/DEPENDENCIES.md`: `219f01365dc4c8eb346816c405b5b17403793764`,
-      GPL-2.0-or-later OR LGPL-3.0-or-later (not MIT).
+      `docs/DEPENDENCIES.md`: `720ef1ce9ae2a2068999a8675717418b9416283e`
+      (the UniXNU-qualified base), GPL-2.0-or-later OR LGPL-3.0-or-later
+      (not MIT).
 - [x] Pin Mesa to a release tag that contains PanVK's JM path and `pan_kmod`:
       `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`, from the
       official GitLab, with file hashes in `deps/deps.toml`.
@@ -44,10 +45,15 @@ gaps immediately, so the kernel must be proven first.
 - [x] Record the Rust toolchain: rustc/cargo 1.98.1, host `aarch64-apple-darwin`
       (`docs/DEPENDENCIES.md`). Clang for the target and the deployment target
       are still open.
-- [x] Reproduce the pinned `metal2vulkan` on the host: the translator and
-      `metal2vulkan-runtime` both build at `219f0136` with Rust 1.98.1.
-- [ ] Reproduce the `NativeMetalObjects.rs` bridge (AdrenoMetal's file) against
-      that runtime; not started.
+- [x] Reproduce the pinned `metal2vulkan` on the host: translator and runtime
+      build with Rust 1.98.1.
+- [x] Compile AdrenoMetal's bridge (`NativeMetalBridge.rs`, `ce5e19e`) against
+      the pinned runtime plus its 16 patches: `Finished in 1 m 17 s`.
+- [ ] Install `llvm-as` (LLVM 21+) so the second fixture is the real AIR rather
+      than a placeholder, and run the bridge's own tests.
+- [ ] The official components.toml revision (`454ff2c`) is older than
+      `ce5e19e` and carries only 7 of the 16 patches the build script lists;
+      resolve which revision upstream actually builds.
 - [x] Decide whether the Mesa fork lives as a patch series in `patches/` or as a
       separate fork with a pinned commit: a patch series in `patches/` (D10).
       Do not commit a Mesa checkout here.

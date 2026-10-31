@@ -19,7 +19,7 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 | Dependency | Role | Licence | State |
 | --- | --- | --- | --- |
 | **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3) |
-| **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `219f01365dc4c8eb346816c405b5b17403793764`; see below |
+| **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `720ef1ce9ae2a2068999a8675717418b9416283e`; see below |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`; see below |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |
 | **Mesa build deps** | `libdrm` headers at build time, Python/mako for generated code, etc. | per package | not enumerated |
@@ -118,10 +118,41 @@ repository. It is a build input, not a deliverable.
 ```text
 metal2vulkan
   repository: https://github.com/steelbrain/metal2vulkan
-  commit:     219f01365dc4c8eb346816c405b5b17403793764    (committed 2026-10-29)
+  commit:     720ef1ce9ae2a2068999a8675717418b9416283e    (committed 2026-10-14)
   licence:    GPL-2.0-or-later OR LGPL-3.0-or-later
   machine:    deps/deps.toml
+  qualified:  UniXNU-merlinx scripts/data/gpu-metal-vulkan-inputs.json
+              ("translator".commit; its four file hashes match this checkout)
 ```
+
+**Why this commit and not the newer tip.** `219f0136` (2026-10-29) is the
+upstream tip and builds the translator and runtime, but AdrenoMetal's bridge
+**cannot compile against it**: 14 of the 16 bridge patches do not apply, and the
+runtime APIs the bridge uses (`references_resource`, `WorkCounts` fields) are
+gone or renamed. `720ef1c` is the base the whole 16-patch series applies to
+cleanly (verified: 16 applied, 0 failed), and it is the commit UniXNU records as
+qualified. Pinning "newest" was the wrong instinct; pinning what the consumer
+was built against is the right one.
+
+**The patch series is part of the dependency.** A pristine `720ef1c` is not
+enough: AdrenoMetal carries 16 patches against it (`bridge/patches/0001`–`0016`,
+applied in order). The bridge build requires the result of all 16. Any future
+re-pin has to re-check that the series still applies, not just the commit.
+
+**Bridge build recipe (host reproduction).** Using AdrenoMetal `ce5e19e`:
+
+```sh
+git apply bridge/patches/0001..0016        # in the metal2vulkan checkout
+llvm-as -o runtime_examples.air  crates/metal2vulkan-validation/fixtures/public/examples/runtime_examples.ll
+llvm-as -o function_constant.air crates/metal2vulkan-validation/fixtures/public/kernel_function_constant_gate_fold.ll
+NMB_RUNTIME_ID=<32 hex> NMB_FIXTURE_AIR=... NMB_FC_AIR=... cargo build
+```
+
+`llvm-as` (LLVM 21+) is required: Apple clang rejects the second fixture's
+`air.static_init` section. It is not installed on this machine yet, so the
+compile check used a placeholder for that one fixture; the bridge source itself
+compiled (`Finished dev profile in 1 m 17 s`). This proves compilation of the
+bridge against the pinned runtime, not its runtime behaviour.
 
 **It is not MIT.** The verifiable evidence at the pinned commit:
 
@@ -170,11 +201,14 @@ cargo  1.98.1 (797e8a9bc 2026-08-05)
 target aarch64-apple-darwin (stable, default)
 ```
 
-Command and result, at `219f01365dc4c8eb346816c405b5b17403793764`:
+Command and result, at the pinned `720ef1ce9ae2a2068999a8675717418b9416283e`
+(the same crates also built at the rejected `219f0136`; the pin changed because
+the bridge needs `720ef1c`):
 
 ```sh
-cargo build                              # crates/metal2vulkan: Finished in 42 s
-cargo build -p metal2vulkan-runtime      # runtime (ash 0.38, libloading): Finished in 61 s
+cargo build                              # crates/metal2vulkan: Finished in 42 s (219f)
+cargo build -p metal2vulkan-runtime      # runtime (ash 0.38, libloading): 61 s (219f)
+cargo build  # bridge crate (NativeMetalBridge.rs) against 720ef1c + 16 patches: Finished in 77 s
 ```
 
 Both are **host** builds (macOS arm64). The translator and the runtime compile;
@@ -187,7 +221,8 @@ open item in `docs/OPEN_QUESTIONS.md`.
 ```text
 2026-10-31  mesa-26.2.6  8e87a503  first accepted pin; release tag, official GitLab
 2026-10-31  (provisional) e24dc5bd  rejected: GitHub mirror, 2026-05-29, months behind
-2026-10-31  metal2vulkan  219f0136  first pin; dual licence, git tree (not crates.io 0.1.0)
+2026-10-31  metal2vulkan  720ef1c   accepted: UniXNU-qualified base; 16 bridge patches apply
+2026-10-31  metal2vulkan  219f0136  rejected: upstream tip; bridge does not compile against it
 ```
 
 Never delete a line. A pin that was wrong is still part of the record.

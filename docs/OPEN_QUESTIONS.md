@@ -206,3 +206,32 @@ marker files need final names. Current proposal:
 
 Confirm before MM5, because the discovery path and the marker files are part of
 the deployed layout.
+
+## 13. AdrenoMetal revision and the bridge fixtures — open
+
+Two facts found while reproducing the bridge build (2026-10-31):
+
+**The official catalog revision is older than the bridge it builds.**
+`UniXNU-merlinx/components.toml` pins AdrenoMetal `454ff2c`
+(2026-10-24T18:03Z); the reference snapshot used here is `ce5e19e`
+(2026-10-25T22:35Z). `454ff2c` carries 7 patches under `bridge/patches/`;
+`ce5e19e` carries 16. UniXNU's own `scripts/build-adreno-metal-bridge.py` lists
+all 16 and applies them one by one, so a build from `454ff2c` cannot satisfy its
+own script. Which revision does the working sheng image actually build — and was
+`components.toml` simply not advanced? Do not "fix" either repository here; this
+is recorded for the owner.
+
+Our pin stays at `ce5e19e`, because that is the revision whose patch set matches
+the build script and which was verified to compile.
+
+**The second fixture needs LLVM's `llvm-as`, not Apple clang.**
+`kernel_function_constant_gate_fold.ll` uses an `air.static_init` section that
+Apple clang rejects ("mach-o section specifier requires a segment and section
+separated by a comma"). `llvm-as` 21+ assembles it. It is not installed on this
+machine, so the compile check used `runtime_examples.air` as a placeholder for
+that one fixture. Compilation passed; the bridge's own tests were not run, and
+nothing here should be read as runtime evidence.
+
+Question: install LLVM (Homebrew or a standalone release) on this machine, or
+leave fixture-dependent tests to the GitHub build? If installed, the bridge's
+host tests from AdrenoMetal can be reproduced next.

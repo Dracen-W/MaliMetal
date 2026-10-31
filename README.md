@@ -105,7 +105,7 @@ speaks `NativeMaliABI.h`.
 | Area | State |
 | --- | --- |
 | Repository scaffold, design, porting map | done |
-| Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136`; both `metal2vulkan` crates build with Rust 1.98.1 |
+| Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `720ef1c`; the bridge compiles against it with the 16-patch series |
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; C surface ready, patch not written |
 | Userspace `NativeMali` ABI client | **MM2 complete for v1**: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |

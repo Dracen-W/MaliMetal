@@ -55,7 +55,9 @@ Third-party material
 1. metal2vulkan
    SPDX-License-Identifier: GPL-2.0-or-later OR LGPL-3.0-or-later
    Copyright Anees Iqbal and contributors.
-   Pinned revision: 219f01365dc4c8eb346816c405b5b17403793764
+   Pinned revision: 720ef1ce9ae2a2068999a8675717418b9416283e
+   (the translator commit UniXNU qualifies in
+   scripts/data/gpu-metal-vulkan-inputs.json)
    https://github.com/steelbrain/metal2vulkan
    Linked unmodified from its own source; nothing of it is copied here. It is
    the runtime behind bridge/NativeMetalObjects.rs.
