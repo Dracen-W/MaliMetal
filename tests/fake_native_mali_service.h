@@ -16,7 +16,7 @@
 #ifndef MALIMETAL_TEST_FAKE_NATIVE_MALI_SERVICE_H
 #define MALIMETAL_TEST_FAKE_NATIVE_MALI_SERVICE_H
 
-#include "NativeMaliClient.h"
+#include "NativeMaliTransport.h"
 
 #include "NativeMaliABI.h"
 

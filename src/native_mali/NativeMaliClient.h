@@ -14,37 +14,8 @@
 #include <stdint.h>
 
 #include "NativeMaliABI.h"
-
-/* A small internal vocabulary. The kernel's kIOReturn* values are mapped onto
- * it in one place; Vulkan's VkResult is mapped from it in the backend. */
-enum class NativeMaliError {
-    None = 0,
-    InvalidArgument,
-    OutOfMemory,
-    Busy,
-    NotReady,
-    Unsupported,
-    Aborted,
-    DeviceLost,
-    IoError,
-    Unknown,
-};
-
-const char *NativeMaliErrorName(NativeMaliError error);
-
-/* Raw code -> internal error. On Apple platforms the argument is a
- * kern_return_t value; the constants are not redefined here. */
-NativeMaliError NativeMaliErrorFromKernReturn(int code);
-
-class NativeMaliTransport {
-public:
-    virtual ~NativeMaliTransport() = default;
-
-    /* One external method call. Returns 0 on success. Implementations must not
-     * touch `output` when they return an error; the client does not read it. */
-    virtual int call(uint32_t selector, const void *input, size_t input_bytes,
-                     void *output, size_t output_bytes) = 0;
-};
+#include "NativeMaliError.h"
+#include "NativeMaliTransport.h"
 
 class NativeMaliClient {
 public:

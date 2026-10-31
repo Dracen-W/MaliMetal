@@ -28,7 +28,7 @@
 
 #include <IOKit/IOKitLib.h>
 
-#include "NativeMaliClient.h"
+#include "NativeMaliTransport.h"
 
 class NativeMaliIokitTransport final : public NativeMaliTransport {
 public:

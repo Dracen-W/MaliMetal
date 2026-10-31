@@ -60,7 +60,7 @@ python3 tools/sync-abi.py
 mkdir -p build/tests
 
 abi_sources="src/native_mali/NativeMaliAbiTable.cpp"
-client_sources="$abi_sources src/native_mali/NativeMaliClient.cpp"
+client_sources="$abi_sources src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliError.cpp"
 lifecycle_sources="$client_sources src/native_mali/NativeMaliBoTable.cpp \
 src/native_mali/NativeMaliIovaAllocator.cpp src/native_mali/NativeMaliFenceTracker.cpp \
 src/native_mali/NativeMaliDevice.cpp"
@@ -87,6 +87,7 @@ if [ "$(uname -s)" = Darwin ]; then
     compile build/tests/test_iokit_transport \
         src/transport/NativeMaliIokitTransport.cpp \
         src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
+        src/native_mali/NativeMaliError.cpp \
         tests/test_iokit_transport.cpp -framework IOKit
     build/tests/test_iokit_transport
 else

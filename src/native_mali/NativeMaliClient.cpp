@@ -12,54 +12,12 @@
 
 #include "NativeMaliAbiTable.h"
 
-#if defined(__APPLE__)
-#include <IOKit/IOReturn.h>
-#endif
-
 namespace {
 
 /* The one limit the client can check without the kernel: the header's own. */
 constexpr uint64_t kExpectedMaxBoBytes = UINT64_C(1) << NativeMaliAbiMaxBoBytesShift;
 
 } /* namespace */
-
-const char *NativeMaliErrorName(NativeMaliError error) {
-    switch (error) {
-        case NativeMaliError::None: return "none";
-        case NativeMaliError::InvalidArgument: return "invalid-argument";
-        case NativeMaliError::OutOfMemory: return "out-of-memory";
-        case NativeMaliError::Busy: return "busy";
-        case NativeMaliError::NotReady: return "not-ready";
-        case NativeMaliError::Unsupported: return "unsupported";
-        case NativeMaliError::Aborted: return "aborted";
-        case NativeMaliError::DeviceLost: return "device-lost";
-        case NativeMaliError::IoError: return "io-error";
-        case NativeMaliError::Unknown: return "unknown";
-    }
-    return "unknown";
-}
-
-NativeMaliError NativeMaliErrorFromKernReturn(int code) {
-    if (code == 0) {
-        return NativeMaliError::None;
-    }
-#if defined(__APPLE__)
-    switch (code) {
-        case kIOReturnBadArgument: return NativeMaliError::InvalidArgument;
-        case kIOReturnNoMemory: return NativeMaliError::OutOfMemory;
-        case kIOReturnNoResources: return NativeMaliError::OutOfMemory;
-        case kIOReturnBusy: return NativeMaliError::Busy;
-        case kIOReturnNotReady: return NativeMaliError::NotReady;
-        case kIOReturnUnsupported: return NativeMaliError::Unsupported;
-        case kIOReturnAborted: return NativeMaliError::Aborted;
-        case kIOReturnNotPermitted: return NativeMaliError::InvalidArgument;
-        case kIOReturnNotPrivileged: return NativeMaliError::InvalidArgument;
-        case kIOReturnError: return NativeMaliError::IoError;
-        default: break;
-    }
-#endif
-    return NativeMaliError::Unknown;
-}
 
 NativeMaliClient::NativeMaliClient(NativeMaliTransport &transport, uint32_t abi_version)
     : transport_(transport), abi_version_(abi_version) {}
