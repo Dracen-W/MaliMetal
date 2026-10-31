@@ -10,10 +10,10 @@ the port keeps that contract; the Mali-specific work is behind it.
 ```text
 AdrenoMetal
 https://github.com/UniXNU/AdrenoMetal
-Pinned revision: ce5e19e33e05e1873d38d818e23cabfe0ac708c3
+Pinned revision: 454ff2ce83766ce7b3e0f355e83f1d72907708b3
 path: bridge/NativeMetalObjects.h
 licence: MIT (SPDX line in the file; full text in NOTICE)
-sha256: 40c30763bad51f551d9eaf8c956acbeb2ea8c5064802a213d9b3c337efe24837
+sha256: 4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14
 ```
 
 The file is **byte-identical** to the pinned revision and must stay that way.

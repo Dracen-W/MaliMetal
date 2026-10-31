@@ -207,31 +207,29 @@ marker files need final names. Current proposal:
 Confirm before MM5, because the discovery path and the marker files are part of
 the deployed layout.
 
-## 13. AdrenoMetal revision and the bridge fixtures — open
+## 13. AdrenoMetal revision and the bridge fixtures — **resolved: official 454ff2c**
 
-Two facts found while reproducing the bridge build (2026-10-31):
+The official component catalog (`UniXNU-merlinx/components.toml`) pins AdrenoMetal
+`454ff2ce83766ce7b3e0f355e83f1d72907708b3` (2026-10-24T18:03Z). That is now the
+pin here: the reference copy was refreshed to it and verified byte-for-byte
+(85 files; `LICENSE` sha256 unchanged), and `src/bridge/NativeMetalObjects.h`
+was re-imported from it (sha256
+`4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14`).
 
-**The official catalog revision is older than the bridge it builds.**
-`UniXNU-merlinx/components.toml` pins AdrenoMetal `454ff2c`
-(2026-10-24T18:03Z); the reference snapshot used here is `ce5e19e`
-(2026-10-25T22:35Z). `454ff2c` carries 7 patches under `bridge/patches/`;
-`ce5e19e` carries 16. UniXNU's own `scripts/build-adreno-metal-bridge.py` lists
-all 16 and applies them one by one, so a build from `454ff2c` cannot satisfy its
-own script. Which revision does the working sheng image actually build — and was
-`components.toml` simply not advanced? Do not "fix" either repository here; this
-is recorded for the owner.
+Two things were established while doing that:
 
-Our pin stays at `ce5e19e`, because that is the revision whose patch set matches
-the build script and which was verified to compile.
+- **The official revision builds.** `454ff2c` carries 7 patches under
+  `bridge/patches/`; all 7 apply to `metal2vulkan` `720ef1c`, and its
+  `NativeMetalBridge.rs` compiles on the host in 1 m 18 s.
+- **Upstream is internally inconsistent.** UniXNU's
+  `scripts/build-adreno-metal-bridge.py` lists and applies 16 patches, but the
+  revision its own catalog pins carries 7. The newer `ce5e19e` snapshot has 16
+  and also builds, but it is not the official pin. This is reported for the
+  owner; neither repository is modified here.
 
-**The second fixture needs LLVM's `llvm-as`, not Apple clang.**
-`kernel_function_constant_gate_fold.ll` uses an `air.static_init` section that
-Apple clang rejects ("mach-o section specifier requires a segment and section
-separated by a comma"). `llvm-as` 21+ assembles it. It is not installed on this
-machine, so the compile check used `runtime_examples.air` as a placeholder for
-that one fixture. Compilation passed; the bridge's own tests were not run, and
-nothing here should be read as runtime evidence.
+`llvm-as` (Homebrew LLVM 23.1.4, at `/opt/homebrew/opt/llvm/bin`, not on `PATH`)
+now assembles both fixtures, so the build above used real AIR rather than a
+placeholder: `runtime_examples.air` 8384 bytes, `fc.air` 5512 bytes.
 
-Question: install LLVM (Homebrew or a standalone release) on this machine, or
-leave fixture-dependent tests to the GitHub build? If installed, the bridge's
-host tests from AdrenoMetal can be reproduced next.
+Still open: the bridge's own host tests have not been run (they need a loader or
+the scripted device), and nothing here is runtime evidence.

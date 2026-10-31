@@ -39,10 +39,6 @@ size_t nmb_device_name(const NmbDevice *, char *out, size_t size);
 uint64_t nmb_device_max_buffer_length(const NmbDevice *);
 // Pipeline makings (count, total us, longest us, waited us, failed), sink messages (info, warning+), shader cache hits/misses/writes.
 bool nmb_device_work_stats(const NmbDevice *, uint64_t out[10]);
-/* The translator source the runtime was built from, which keys the shader cache (build-native-metal-bridge.py). */
-const char *nmb_runtime_build(void);
-// Linear images made/refused/refused again, shadowed textures, shadow copies, texels copied back, linear passes in place/through copies.
-bool nmb_device_texture_counts(const NmbDevice *, uint64_t out[8]);
 /* Artifact lookups and driver pipeline records are separate cache layers. */
 struct NmbShaderCacheStats {
     uint64_t hits, misses, rejected, read_failures, writes, write_failures, evictions;
@@ -120,8 +116,6 @@ NmbFunction *nmb_function_new(NmbLibrary *, const char *name);
  * indexed value; bytes holds the value's bytes. */
 struct NmbConstant {uint64_t type, index; const char *name; const void *bytes; uint64_t length;};
 NmbFunction *nmb_function_new_specialized(NmbLibrary *, const char *name, const struct NmbConstant *constants, uint32_t count);
-// The library's function with every function constant it declares set to zero (shader priming), or null.
-NmbFunction *nmb_function_new_zero_constants(NmbLibrary *, const char *name);
 void nmb_function_release(NmbFunction *);
 /* Metal's MTLFunctionType (1 vertex, 2 fragment, 3 kernel, ...). */
 uint64_t nmb_function_type(const NmbFunction *);
@@ -152,9 +146,6 @@ struct NmbComputePipelineDescriptor {
     NmbFunction *function;
     uint64_t max_threads, multiple_of_execution_width, indirect, max_call_stack_depth, adding_binary_functions;
     uint64_t mutability[31];
-    /* linkedFunctions.functions and .privateFunctions: visible functions the kernel calls. */
-    NmbFunction *const *linked; uint64_t linked_count;
-    NmbFunction *const *private_linked; uint64_t private_linked_count;
 };
 NmbComputePipeline *nmb_compute_pipeline_new_with_options(NmbDevice *, NmbFunction *, const struct NmbPipelineOptions *);
 NmbComputePipeline *nmb_compute_pipeline_new_with_descriptor(NmbDevice *, const struct NmbComputePipelineDescriptor *, const struct NmbPipelineOptions *);

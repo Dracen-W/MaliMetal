@@ -66,7 +66,7 @@ page-table, power, clock and ABI fact.
   `docs/MAINTENANCE.md` and record the new pin in the same commit that changes
   the hashes, before any patch rebase.
 - **Pin the AdrenoMetal credit.** Credit and porting references name commit
-  `ce5e19e33e05e1873d38d818e23cabfe0ac708c3`, not `main`. If the credit or the
+  `454ff2ce83766ce7b3e0f355e83f1d72907708b3`, not `main`. If the credit or the
   porting map is updated, record the new commit with the same evidence.
 - **DTB wins over prose** when they disagree. Record the conflict and the
   decision in `Mali-G52/docs/OPEN_QUESTIONS.md`, not in a code comment that

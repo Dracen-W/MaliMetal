@@ -18,7 +18,7 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 
 | Dependency | Role | Licence | State |
 | --- | --- | --- | --- |
-| **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`ce5e19e33e05e1873d38d818e23cabfe0ac708c3`](https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3) |
+| **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3) |
 | **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `720ef1ce9ae2a2068999a8675717418b9416283e`; see below |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`; see below |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |
@@ -33,8 +33,8 @@ AdrenoMetal is the upstream project this port is derived from:
 ```text
 AdrenoMetal
 https://github.com/UniXNU/AdrenoMetal
-Pinned revision: ce5e19e33e05e1873d38d818e23cabfe0ac708c3
-https://github.com/UniXNU/AdrenoMetal/tree/ce5e19e33e05e1873d38d818e23cabfe0ac708c3
+Pinned revision: 454ff2ce83766ce7b3e0f355e83f1d72907708b3
+https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3
 MIT License
 Copyright (c) 2026 NativeMetal contributors
 ```
@@ -43,8 +43,10 @@ The revision above is the one the porting map and file references were checked
 against. It is a fixed commit, not `main`: a later AdrenoMetal change does not
 silently change what this repository claims to be derived from. The local
 reference copy was verified byte-for-byte against that commit on 2026-10-31
-(all 94 blobs match; `LICENSE` sha256
-`c51a32dfc2140d3d56f796a3a7010e574f2e3649b97c42e010303ad57f848265`). If the
+(all 85 blobs match; `LICENSE` sha256
+`c51a32dfc2140d3d56f796a3a7010e574f2e3649b97c42e010303ad57f848265`). This is
+the revision the official component catalog pins; the newer `ce5e19e` snapshot
+that was used earlier is not the pin. If the
 copy is refreshed, re-check it against the pinned commit and record the result
 rather than guessing.
 
@@ -139,10 +141,13 @@ enough: AdrenoMetal carries 16 patches against it (`bridge/patches/0001`–`0016
 applied in order). The bridge build requires the result of all 16. Any future
 re-pin has to re-check that the series still applies, not just the commit.
 
-**Bridge build recipe (host reproduction).** Using AdrenoMetal `ce5e19e`:
+**Bridge build recipe (host reproduction).** Using the official AdrenoMetal
+`454ff2c` and its own 7-patch series (verified: 7 applied, bridge compiled in
+1 m 18 s with LLVM 23.1.4 `llvm-as` fixtures). The newer `ce5e19e` with its 16
+patches also builds, but it is not the pin:
 
 ```sh
-git apply bridge/patches/0001..0016        # in the metal2vulkan checkout
+git apply bridge/patches/0001..0007        # in the metal2vulkan checkout
 llvm-as -o runtime_examples.air  crates/metal2vulkan-validation/fixtures/public/examples/runtime_examples.ll
 llvm-as -o function_constant.air crates/metal2vulkan-validation/fixtures/public/kernel_function_constant_gate_fold.ll
 NMB_RUNTIME_ID=<32 hex> NMB_FIXTURE_AIR=... NMB_FC_AIR=... cargo build

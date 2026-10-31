@@ -47,13 +47,13 @@ gaps immediately, so the kernel must be proven first.
       are still open.
 - [x] Reproduce the pinned `metal2vulkan` on the host: translator and runtime
       build with Rust 1.98.1.
-- [x] Compile AdrenoMetal's bridge (`NativeMetalBridge.rs`, `ce5e19e`) against
-      the pinned runtime plus its 16 patches: `Finished in 1 m 17 s`.
-- [ ] Install `llvm-as` (LLVM 21+) so the second fixture is the real AIR rather
-      than a placeholder, and run the bridge's own tests.
-- [ ] The official components.toml revision (`454ff2c`) is older than
-      `ce5e19e` and carries only 7 of the 16 patches the build script lists;
-      resolve which revision upstream actually builds.
+- [x] Compile the official AdrenoMetal bridge (`454ff2c`, `NativeMetalBridge.rs`)
+      against the pinned runtime plus its own 7 patches, with LLVM 23.1.4
+      `llvm-as` fixtures: `Finished in 1 m 18 s`. (The newer `ce5e19e` with 16
+      patches also builds; not the pin.)
+- [ ] Run the bridge's own host tests (needs the real fixtures and a loader).
+- [ ] Report to upstream that `scripts/build-adreno-metal-bridge.py` lists 16
+      patches while the catalog revision it pins (`454ff2c`) carries 7.
 - [x] Decide whether the Mesa fork lives as a patch series in `patches/` or as a
       separate fork with a pinned commit: a patch series in `patches/` (D10).
       Do not commit a Mesa checkout here.

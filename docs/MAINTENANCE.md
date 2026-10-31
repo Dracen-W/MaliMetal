@@ -16,7 +16,7 @@ result. If that ever changes, it is a decision, not a convenience.
 | Kernel ABI, registers, device facts | `Mali-G52` (separate repo) | only under that repository's rules |
 | Mesa seam | `deps/deps.toml` + `patches/mesa/` | yes, per the procedure below |
 | `metal2vulkan` + patches | `deps/deps.toml` + `patches/metal2vulkan/` | yes, rarely |
-| Metal frontend, C object ABI | AdrenoMetal `ce5e19e` | only with a recorded re-pin |
+| Metal frontend, C object ABI | AdrenoMetal `454ff2c` | only with a recorded re-pin |
 | Kernel driver behaviour | `Mali-G52` | not here |
 
 ## The pin set
