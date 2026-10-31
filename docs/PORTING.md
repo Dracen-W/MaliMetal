@@ -31,7 +31,7 @@ and is recorded in `NOTICE`. Files that are rewritten for Mali get a
 | File | Decision | Reason / required change |
 | --- | --- | --- |
 | `NativeAdrenoMetalPlugin.mm` | **fork** | Discovery, publish marker and client allow-list are reusable. Replace the Turnip path lookup with the PanVK ICD path; replace Adreno naming; remove AGX display probing; wire the MT6768 scanout path once known. |
-| `NativeBridgeMetalFrontend.mm` | **reuse** | Depends only on `bridge/NativeMetalObjects.h`. Change the log prefix and bundle-private names only. |
+| `NativeBridgeMetalFrontend.mm` | **imported unchanged** at `src/frontend/NativeBridgeMetalFrontend.mm` (sha256 pinned) | Depends only on `bridge/NativeMetalObjects.h`. Any Mali change is a separate, recorded fork; the imported copy stays byte-identical and is syntax-checked by `tests/run.sh`. |
 | `NativeBridgeMetalFrontend.h` | **reuse** | Same exported C entry points; `loader` now names the PanVK ICD. |
 | `NativeMetalBridgePhase.h` | **reuse** | Phase markers; no hardware assumptions. |
 | `CacheExport.h` | **reuse** | Shader-cache directory export; independent of the GPU vendor. |

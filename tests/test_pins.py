@@ -144,6 +144,19 @@ def main() -> int:
         "NOTICE does not record the imported header's hash",
     )
 
+    # The frontend is imported unchanged too; a local edit would silently fork
+    # the port from the revision the rest of the credits name.
+    imported = {
+        "src/frontend/NativeBridgeMetalFrontend.h":
+            "50e6fbc267b7d77d46bce3cd86b0842bce738f5a4a0c5cdd2b1054d10477bfc2",
+        "src/frontend/NativeBridgeMetalFrontend.mm":
+            "eadbba1bf6cd5823199546402cc58904154c0775701d9c691ddc19ba882fd996",
+    }
+    for rel, expected in imported.items():
+        digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
+        check(digest == expected, f"{rel} is not the pinned AdrenoMetal file ({digest})")
+        check(digest in notice, f"NOTICE does not record {rel}'s hash")
+
     # Every source file states its licence in an SPDX header. This is the cheap
     # guard for "always keep the licence and the credit": a copied file without
     # its header fails here before it is committed.

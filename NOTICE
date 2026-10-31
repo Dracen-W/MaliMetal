@@ -38,8 +38,13 @@ AdrenoMetal — the upstream project this port is based on
   Imported file: src/bridge/NativeMetalObjects.h, byte-identical to
   bridge/NativeMetalObjects.h at the pinned revision.
   sha256 4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14
-  It keeps its SPDX-License-Identifier: MIT line; tests/test_pins.py enforces
-  the hash and the attribution.
+  Imported files, byte-identical to the pinned revision:
+    src/frontend/NativeBridgeMetalFrontend.h
+      sha256 50e6fbc267b7d77d46bce3cd86b0842bce738f5a4a0c5cdd2b1054d10477bfc2
+    src/frontend/NativeBridgeMetalFrontend.mm
+      sha256 eadbba1bf6cd5823199546402cc58904154c0775701d9c691ddc19ba882fd996
+  They keep their SPDX-License-Identifier: MIT lines; tests/test_pins.py
+  enforces the hashes and the attribution.
 
   A local reference copy is kept in AdrenoMetal-reference/ for development.
   It was verified byte-for-byte against the pinned revision on 2026-10-31.

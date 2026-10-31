@@ -109,7 +109,8 @@ speaks `NativeMaliABI.h`.
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; C surface ready, patch not written |
 | Userspace `NativeMali` ABI client | **MM2 complete for v1**: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
-| Metal object C ABI | imported byte-identical at the pinned AdrenoMetal revision; compiles as C11/C++17, runtime not built |
+| Metal object C ABI | imported byte-identical at the pinned AdrenoMetal revision; compiles as C11/C++17 |
+| Metal frontend | imported byte-identical (`src/frontend`); Objective-C++ syntax-checked on the host, runtime not built |
 | Metal plugin / device publish | blocked on PanVK |
 | Metal self-test (compute, render, import) | blocked on device creation |
 | QuartzCore / system UI | blocked on the above and on display scanout |
@@ -202,6 +203,7 @@ between those two models. The options and the evidence are in
 ├── src/native_mali/           ABI-side userspace code (client, lifecycle, fences)
 ├── src/backend/               C surface the Mesa patch maps onto
 ├── src/bridge/                Metal object C ABI, imported from AdrenoMetal
+├── src/frontend/              Metal API frontend, imported from AdrenoMetal
 ├── src/transport/             IOKit glue: one external method call
 ├── tests/                     host tests; tests/run.sh runs them all
 ├── tools/deps.py              pin verifier: fails on a wrong checkout

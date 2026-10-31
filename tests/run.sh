@@ -99,6 +99,13 @@ run_test test_kmod_api $lifecycle_sources src/backend/native_mali_kmod.cpp \
     tests/test_kmod_api.cpp
 
 if [ "$(uname -s)" = Darwin ]; then
+    # The Metal frontend is Objective-C++ and needs the target's Metal.framework
+    # types. Syntax-only: it is not linked and calls nothing here.
+    printf '%s\n' "check  Metal frontend (Objective-C++, syntax only)"
+    "${CXX:-c++}" -std=c++17 -fobjc-arc -Wall -Wextra -Werror \
+        -Wno-deprecated-declarations -fsyntax-only -Isrc -Isrc/frontend \
+        -x objective-c++ src/frontend/NativeBridgeMetalFrontend.mm
+
     # shellcheck disable=SC2086
     compile build/tests/test_iokit_transport \
         src/transport/NativeMaliIokitTransport.cpp \
