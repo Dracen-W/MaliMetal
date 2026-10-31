@@ -129,7 +129,7 @@ licence = "MIT"
 patch_series = ""
 
 [[dependency.file]]
-path = "NativeMetalObjects.h"
+path = "bridge/NativeMetalObjects.h"
 sha256 = "4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14"
 
 [[dependency.file]]
