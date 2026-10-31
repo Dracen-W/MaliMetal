@@ -8,6 +8,12 @@ GPL-2.0-only NativeMali driver. Individual files keep the licence in their own
 SPDX header. The derivation of every AdrenoMetal-derived file is recorded in
 its header.
 
+LICENSE is the unmodified GNU General Public License version 2 text from
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+sha256 edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
+Do not edit it; the "only" in GPL-2.0-only is expressed by each file's SPDX
+header, not by changing the licence text.
+
 --------------------------------------------------------------------------------
 AdrenoMetal — the upstream project this port is based on
 
