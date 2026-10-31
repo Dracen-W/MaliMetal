@@ -74,7 +74,7 @@ struct FakeTransport final : NativeMaliTransport {
             reply->max_bo_bytes = reply_max_bo_bytes;
         } else if (sel == NativeMaliMethodGetDeviceInfo) {
             auto *reply = static_cast<NativeMaliAbiDeviceInfo *>(output);
-            reply->gpu_id = 0x90;
+            reply->gpu_id = 0x70021000;
             reply->flags = NativeMaliDeviceNonCoherent;
             reply->va_size = UINT64_C(1) << 48;
         } else if (sel == NativeMaliMethodGetStatus) {
@@ -157,7 +157,7 @@ int main() {
            "GetDeviceInfo sends no input");
     expect(transport.output_bytes == sizeof(NativeMaliAbiDeviceInfo),
            "GetDeviceInfo reply size");
-    expect(info.gpu_id == 0x90, "device info copied");
+    expect(info.gpu_id == 0x70021000, "device info copied");
     expect((info.flags & NativeMaliDeviceNonCoherent) != 0, "non-coherent flag visible");
 
     /* A failed call maps the kernel code and leaves the output alone. */

@@ -77,6 +77,14 @@ later successful wait.
 Every one of those paths is covered by `tests/test_device_lifecycle.cpp`,
 including the rollbacks and the "lost fence cannot be revived" case.
 
+`tests/fake_native_mali_service.h` is a scripted stand-in for the kernel
+service: it applies the driver's rules (handle exists, one map per buffer, no
+overlapping IOVAs, the chain lies inside a mapping, the fence belongs to the
+client, reset drops in-flight fences and keeps buffers, status counters) and
+`tests/test_fake_service.cpp` drives the whole lifecycle through it. It is a
+test double, not a GPU model; it exists so a mistake in the record handling
+fails on the host instead of in the driver.
+
 The ABI is fixed-size, little-endian, ARM64-to-ARM64. Every method has exactly
 one input record and one output record, either of which may be absent. A
 mismatched size, version, method or flag is refused, never ignored. An output

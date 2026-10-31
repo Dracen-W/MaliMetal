@@ -93,8 +93,11 @@ This is pure logic and must be testable without a phone.
       re-baseline.
 - [ ] Device-info cache: `gpu_id`, present masks, thread limits, feature words,
       non-coherent flag, VA size.
-- [ ] Fake service for tests that answers records from a scripted state, not
-      from hardware.
+- [x] Fake service for tests that answers records from a scripted state, not
+      from hardware (`tests/fake_native_mali_service.h`): handles, single map,
+      no overlapping IOVAs, chains inside a mapping, fence ownership, reset
+      semantics and status counters. `tests/test_fake_service.cpp` drives the
+      whole lifecycle through it, including a fault and a recovery.
 - [ ] Tests: success, short record, unknown version/method/flag, out-of-range
       IOVA, double map, unmap-while-busy, fence from another client, reset
       during wait.

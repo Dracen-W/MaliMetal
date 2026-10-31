@@ -133,8 +133,15 @@ NativeMaliError NativeMaliDevice::submit(uint64_t job_chain, uint64_t wait_fence
 }
 
 NativeMaliError NativeMaliDevice::wait(uint64_t fence, uint64_t timeout_ns) {
-    if (fences_.state(fence) == NativeMaliFenceState::Unknown) {
+    const NativeMaliFenceState tracked = fences_.state(fence);
+    if (tracked == NativeMaliFenceState::Unknown) {
         return NativeMaliError::InvalidArgument;
+    }
+    if (tracked == NativeMaliFenceState::Lost) {
+        /* A reset already destroyed this work. Do not even ask the kernel: a
+         * fence value may be reused after a reset, and a successful wait for
+         * the new owner must not be reported as this job's completion. */
+        return NativeMaliError::DeviceLost;
     }
     const NativeMaliError error = client_.wait_fence(fence, timeout_ns);
     if (error != NativeMaliError::None) {

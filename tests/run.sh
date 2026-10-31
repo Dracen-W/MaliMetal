@@ -63,6 +63,14 @@ build/tests/test_device_lifecycle
     -o build/tests/test_fence_tracker
 build/tests/test_fence_tracker
 
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
+    -Ibuild/abi -Isrc/native_mali -Itests \
+    src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
+    src/native_mali/NativeMaliBoTable.cpp src/native_mali/NativeMaliIovaAllocator.cpp \
+    src/native_mali/NativeMaliFenceTracker.cpp src/native_mali/NativeMaliDevice.cpp \
+    tests/test_fake_service.cpp -o build/tests/test_fake_service
+build/tests/test_fake_service
+
 if [ -n "${MALI_DEPS_DIR:-}" ]; then
     python3 tools/deps.py verify --require-all \
         --checkout "mesa=$MALI_DEPS_DIR/mesa" \
