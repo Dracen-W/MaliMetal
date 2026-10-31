@@ -18,8 +18,11 @@ page-table, power, clock and ABI fact.
 5. `docs/OPEN_QUESTIONS.md` — what waits on a human answer or hardware.
 6. `docs/NATIVE_MALI_ABI.md` — the kernel ABI subset this port needs.
 7. `docs/PORTING.md` — which AdrenoMetal file is reused, forked or replaced.
-8. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
-   `NativeMaliABI.h` and the header of every ABI method used.
+8. `docs/DEPENDENCIES.md` and `deps/deps.toml` — every pinned revision and hash.
+9. `docs/MAINTENANCE.md` — the re-pin/rebase procedure; follow it before moving
+   a dependency.
+10. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
+    `NativeMaliABI.h` and the header of every ABI method used.
 
 ## Non-negotiable rules
 
@@ -51,7 +54,13 @@ page-table, power, clock and ABI fact.
   Add the failing test, then the code.
 - **Licences.** New files are `GPL-2.0-only`. Files derived from MIT material
   keep their MIT header and are recorded in `NOTICE`. `metal2vulkan` is linked
-  unmodified under its own dual licence. Mesa stays MIT with its headers.
+  unmodified under `GPL-2.0-or-later OR LGPL-3.0-or-later` — **not MIT** — and
+  this repository elects the GPL-2.0-or-later option under GPLv2. Mesa stays MIT
+  with its headers.
+- **Never edit a hash to make a check pass.** `python3 tools/deps.py verify` is
+  the gate. A mismatch means the tree moved or the pin is wrong; follow
+  `docs/MAINTENANCE.md` and record the new pin in the same commit that changes
+  the hashes, before any patch rebase.
 - **Pin the AdrenoMetal credit.** Credit and porting references name commit
   `ce5e19e33e05e1873d38d818e23cabfe0ac708c3`, not `main`. If the credit or the
   porting map is updated, record the new commit with the same evidence.

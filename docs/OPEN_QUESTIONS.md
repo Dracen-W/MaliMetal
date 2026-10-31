@@ -5,37 +5,32 @@ Following the rule "when unsure, stop": every item below is waiting on a human
 answer, a hardware measurement, or a pinned dependency. Do not silently choose
 one in code.
 
-## 1. Mesa/PanVK dependency — **base pinned, two questions remain**
+## 1. Mesa/PanVK dependency — **resolved: pinned to mesa-26.2.6 on GitLab**
 
-The base is pinned to Mesa commit
-`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` (main-branch snapshot, committed
-2026-05-29), with the five seam-relevant files and their sha256 recorded in
-`docs/DEPENDENCIES.md`. The revision contains PanVK's JM path, `pan_kmod`, the
-Bifrost compiler and the `panvk_vX_gpu_queue.c` layout this design patches.
+The base is Mesa tag `mesa-26.2.6`, commit
+`8e87a503ebd91408c88596d1b9eeb5f4c0b2088d` (2026-10-28), from
+`https://gitlab.freedesktop.org/mesa/mesa`. The seam-relevant files and their
+sha256 are in `deps/deps.toml` and `docs/DEPENDENCIES.md`; `tools/deps.py verify`
+checks a checkout against them.
 
-Resolved by that pin:
+Resolved:
 
-- a pinned Mesa checkout is the build dependency (the port keeps only the patch
-  series, never the tree);
-- patches live in `patches/`, applied to a pristine checkout of the pinned SHA;
-- the commit, not a branch, is what a build must match.
+- canonical source is the official GitLab, not the stale GitHub mirror;
+- a release tag is used, with its peeled commit recorded;
+- patches live in `patches/mesa/`, applied to a pristine checkout of that SHA;
+- the repository owner owns re-pins, per `docs/MAINTENANCE.md` (D13).
 
 Still open:
 
-- **Who rebases the patches when Mesa moves,** and how often. The patch series
-  touches the JM submission path and the Vulkan sync layer, so a rebase is not
-  mechanical.
-- **Is the target build supported by this revision's build system?** PanVK here
-  expects a Linux/Android-style build (libdrm headers, meson, Python/mako). If
-  the target's `iOS`-style userspace toolchain cannot build it, what is the
-  minimum build shim?
-- **Re-pin to a release tag before product use.** `e24dc5bd` is unreleased: no
-  backports, and main can break it. The newest release tag reachable from this
-  environment is `mesa-25.0.0`, which has a different JM file layout, so that
-  re-pin is a re-target, not a rebase.
-
-Until the rebase owner and the build shim are answered, MM3 cannot claim to be
-reproducible, even though the base itself is fixed.
+- **Toolchain and build shim.** PanVK here expects a Linux/Android-style build
+  (libdrm headers, meson, Python/mako). If the target's userspace toolchain
+  cannot build it, what is the minimum shim? This must be answered in MM1.
+- **`libdrm` at runtime.** If the seam still calls `drm*` functions (rather than
+  only needing headers at build time), it is not native enough and the patch
+  series is larger than estimated.
+- **Upstream adoption.** Whether any of the seam can be proposed upstream as a
+  generic `pan_kmod` submit/VM-bind operation. Not decided; see
+  `docs/MAINTENANCE.md`, "Upstream contribution path".
 
 ## 2. The `pan_kmod` seam — **resolved: Option A (Mesa patch series)**
 
@@ -75,7 +70,7 @@ Consequences accepted with Option A:
 - the patch series must touch the JM submission path and the Vulkan sync layer,
   not only `pan_kmod`;
 - every Mesa update needs a rebase and a re-run of the host tests;
-- the Mesa base is pinned to `e24dc5bd` (item 1), and MM3 must re-verify the
+- the Mesa base is pinned to `mesa-26.2.6` (item 1), and MM3 must re-verify the
   recorded hashes before applying anything;
 - the kernel ABI still comes first: the seam is not validated before
   `Mali-G52` runs a real job.

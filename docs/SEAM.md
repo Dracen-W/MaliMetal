@@ -1,11 +1,13 @@
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # Seam design: Option A (Mesa patch series)
 
-Status: **design only**. No Mesa patch exists yet. The Mesa base is pinned to
-commit `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` (main-branch snapshot,
-2026-05-29); the files and sha256 hashes this design was checked against are in
+Status: **design only**. No Mesa patch exists yet. The Mesa base is tag
+`mesa-26.2.6`, commit `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`
+(2026-10-28), from `https://gitlab.freedesktop.org/mesa/mesa`; the files and
+sha256 hashes this design was checked against are in `deps/deps.toml` and
 `docs/DEPENDENCIES.md`. Every file/function/line reference below is from that
-commit. MM3 must re-verify the hashes first and stop on a mismatch.
+commit. MM3 must run `python3 tools/deps.py verify` first and stop on a
+mismatch.
 
 This document describes the chosen seam: a native `pan_kmod` backend plus the
 minimum PanVK changes needed to submit jobs and wait on fences through the

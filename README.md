@@ -105,7 +105,7 @@ speaks `NativeMaliABI.h`.
 | Area | State |
 | --- | --- |
 | Repository scaffold, design, porting map | done |
-| Dependency pin (metal2vulkan, Mesa/PanVK) | Mesa/PanVK pinned to `e24dc5bd`; `metal2vulkan` still open |
+| Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `219f0136` |
 | `pan_kmod` backend seam | **chosen: Option A**, a pinned Mesa patch series; not implemented |
 | Userspace `NativeMali` ABI client | not started |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
@@ -121,8 +121,8 @@ Do not expect a binary, a bundle or an installable artifact yet.
 The full checklists are in `docs/TODO.md`. The short form:
 
 1. **MM0** — repository, licences, design, porting map.
-2. **MM1** — pin `metal2vulkan`; reproduce the pinned Mesa/PanVK base without
-   hardware (Mesa is already pinned to `e24dc5bd`).
+2. **MM1** — reproduce the pinned Mesa/PanVK and `metal2vulkan` base without
+   hardware (both are pinned; the build is not reproduced yet).
 3. **MM2** — a pure, host-tested userspace `NativeMali` ABI client.
 4. **MM3** — a Mesa `pan_kmod` backend over that client (the seam decision).
 5. **MM4** — PanVK creates a device and runs a trivial job on the phone.
@@ -174,11 +174,14 @@ between those two models. The options and the evidence are in
 │   ├── ARCHITECTURE.md        layers, contracts, data flow, seam options
 │   ├── DECISIONS.md           decisions already taken and why
 │   ├── DEPENDENCIES.md        what is pinned, what is still floating
+│   ├── MAINTENANCE.md         re-pin and rebase procedure, failure modes
 │   ├── NATIVE_MALI_ABI.md     the subset of the kernel ABI this port needs
 │   ├── OPEN_QUESTIONS.md      what needs a human answer or hardware
 │   ├── PORTING.md             file-by-file reuse and fork map
 │   └── TODO.md                milestones, checklists and deliberate gaps
-├── patches/                   Mesa patch series (empty until MM3)
+├── deps/deps.toml             machine-readable dependency pins
+├── patches/                   Mesa and metal2vulkan patch series (empty until MM3)
+├── tools/deps.py              pin verifier: fails on a wrong checkout
 ├── AdrenoMetal-reference/     local MIT reference, gitignored, never committed
 └── third_party/               local dependency checkouts, gitignored
 ```
@@ -220,7 +223,7 @@ means for PanVK.
 | `MaliMetal` (this) | userspace Metal frontend and Vulkan backend seam | separate git repository |
 | `UniXNU-merlinx` | OS image, ADT, build orchestration, display driver | do not modify from here |
 | `AdrenoMetal` | MIT reference for architecture and reusable frontend | never commit the copy |
-| Mesa | PanVK and the Bifrost compiler | base pinned to `e24dc5bd`; patch series in `patches/`; never commit a checkout |
+| Mesa | PanVK and the Bifrost compiler | pinned to `mesa-26.2.6` (GitLab); patch series in `patches/mesa/`; never commit a checkout |
 | `metal2vulkan` | Metal API over Vulkan | linked unmodified, pinned revision |
 
 ## References
@@ -230,9 +233,10 @@ means for PanVK.
 - `AdrenoMetal-reference/README.md` and `AGENTS.md` for the model.
 - Mesa `src/panfrost/vulkan/panvk_physical_device.c`,
   `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c`,
-  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` at commit
-  `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` for the backend assumptions. The
-  pinned files and their hashes are in `docs/DEPENDENCIES.md`.
+  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` at tag `mesa-26.2.6`
+  (`8e87a503`), from `https://gitlab.freedesktop.org/mesa/mesa`, for the backend
+  assumptions. The pinned files and their hashes are in `docs/DEPENDENCIES.md`
+  and `deps/deps.toml`.
 
 ## Licence
 
@@ -240,3 +244,36 @@ GPL-2.0-only for this repository as a whole. `NativeMaliHandleIndex.h`-style
 MIT literals, the MIT reference material and the dual-licensed `metal2vulkan`
 are handled in `NOTICE`. Do not copy a file from a reference tree without
 recording its origin and licence.
+
+Why GPL-2.0-only and not something permissive, since reuse is a goal:
+
+- the kernel driver (`Mali-G52`) is GPL-2.0-only, and this port consumes its
+  ABI;
+- `metal2vulkan` is **GPL-2.0-or-later OR LGPL-3.0-or-later** — not MIT — and is
+  linked in statically. This repository elects GPL-2.0-or-later under GPLv2, so
+  the combination is GPLv2;
+- Mesa is MIT per file and its patches keep that licence; our own files do not
+  become MIT by touching a MIT file.
+
+A permissive MaliMetal would need a different runtime (or an IPC boundary), not a
+licence header edit. If that is ever wanted, it is a recorded decision in
+`docs/DECISIONS.md`, not a quiet change.
+
+## Reuse and upstreaming
+
+The goal beyond this phone is code others can take. What keeps that possible:
+
+- **Backend neutrality.** The Metal frontend and the C object ABI are
+  AdrenoMetal's design and talk only to `NativeMetalObjects.h`. PanVK types do
+  not leak upward.
+- **Machine-checkable pins.** `deps/deps.toml` plus `tools/deps.py` let someone
+  else reproduce the exact base and see a failure when it drifts.
+- **A written maintenance procedure.** `docs/MAINTENANCE.md` covers re-pinning,
+  rebasing, stop conditions and the upstream path.
+
+What could plausibly go upstream is the generic part: a `pan_kmod` submit and
+VM-bind operation, and the removal of the JM path's direct `drmSyncobj` use.
+What cannot is the `NativeMali` backend and the MT6768 plugin — they name an
+Apple kernel ABI and a specific SoC. Saying that plainly is part of being a good
+citizen: upstream gets a small, testable change, not a port with an OS-shaped
+hole in the middle.

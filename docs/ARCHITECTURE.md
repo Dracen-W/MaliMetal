@@ -176,8 +176,8 @@ So Option A is a patch series that must replace at least:
 
 This is a larger patch surface than "add one `pan_kmod` backend". It is still
 smaller than implementing the Panfrost DRM UAPI in the kernel (Option B), but
-the estimate must include it. The file list above matches the pinned Mesa commit
-`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae`; the per-file hashes are in
+the estimate must include it. The file list above matches the pinned Mesa tag
+`mesa-26.2.6` (`8e87a503`); the per-file hashes are in `deps/deps.toml` and
 `docs/DEPENDENCIES.md`, and MM3 must re-verify them before applying a patch.
 
 ### 6. NativeMali ABI

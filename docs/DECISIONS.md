@@ -131,21 +131,49 @@ Decisions already taken. Reopening one requires new evidence and an entry in
   kernel ABI still has to work first.
 - **Date:** 2026-10-31.
 
-## D11 — The Mesa base is pinned to `e24dc5bd`, re-checked by hash
+## D11 — The Mesa base is pinned to a release tag from the official GitLab
 
-- **Decision:** the Mesa base for the patch series is commit
-  [`e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae`](https://github.com/mirror/mesa/commit/e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae),
-  a main-branch snapshot committed 2026-05-29. The five PanVK/`pan_kmod` files
-  the seam depends on are recorded by sha256 in `docs/DEPENDENCIES.md`.
-- **Why:** the newest Mesa release tag reachable from this environment is
-  `mesa-25.0.0`, which predates the current PanVK layout (the JM submit lives in
-  `jm/panvk_vX_queue.c` there) and is about a year older. Pinning the newer
-  layout gives the seam the file structure it must patch, and an immutable SHA
-  is as reproducible as a tag. No commit was pinned on a guess: every claim in
-  `docs/SEAM.md` was checked against this SHA.
-- **Consequence:** this is an unreleased snapshot, so it gets no backports and
-  main can break it. MM3 must re-verify the hashes before applying any patch; a
-  hash mismatch means stop, not "rebase and hope". A re-pin to a release tag is
-  required before any product use, and the change is recorded here with the same
-  evidence.
+- **Decision:** the Mesa base is tag `mesa-26.2.6`, commit
+  `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d` (committed 2026-10-28), taken from
+  `https://gitlab.freedesktop.org/mesa/mesa`. The five PanVK/`pan_kmod` files the
+  seam depends on, plus `docs/license.rst`, are recorded by sha256 in
+  `deps/deps.toml` and `docs/DEPENDENCIES.md`.
+- **Why:** it is the newest point release and a fixed commit, so the base is
+  reproducible and has backports. The canonical host is the freedesktop GitLab;
+  a commit SHA is host-independent, so pinning GitLab does not stop anyone
+  building from a mirror.
+- **Rejected:** the earlier provisional pin (`e24dc5bd`, GitHub `mirror/mesa`,
+  2026-05-29). That mirror was months behind main — its newest tag was
+  `mesa-25.0.0` — and Mesa moved substantially in between. Pin history is kept in
+  `docs/DEPENDENCIES.md`.
+- **Consequence:** a re-pin is a two-commit operation (pin, then patch rebase) and
+  is owned by the repository owner; the procedure is `docs/MAINTENANCE.md`. Any
+  re-pin must re-verify hashes and re-read the JM submit path before a patch is
+  applied.
+- **Date:** 2026-10-31 (supersedes the same-day provisional pin).
+
+## D12 — metal2vulkan is pinned and used under GPL-2.0-or-later
+
+- **Decision:** `metal2vulkan` is pinned to commit
+  `219f01365dc4c8eb346816c405b5b17403793764` (2026-10-29) and is used under its
+  `GPL-2.0-or-later` option, elected as GPLv2, so the combined work remains
+  GPL-2.0-only. The `LGPL-3.0-or-later` option is not used.
+- **Why:** that is its actual licence (`Cargo.toml`, `LICENSE`, both checked at
+  the pinned commit). An MIT assumption was considered and rejected: it is not
+  MIT, and the crates.io release `0.1.0` is LGPL-3.0-or-later only, so the git
+  tree is what must be pinned. LGPLv3 cannot be combined with a GPLv2-only work.
+- **Consequence:** a permissively licensed MaliMetal is not possible while this
+  runtime is linked in. If that changes, it is an explicit decision (separate
+  process, different runtime, or relicensing), never a silent SPDX edit.
+- **Date:** 2026-10-31.
+
+## D13 — One owner re-pins dependencies, with a written procedure
+
+- **Decision:** the repository owner owns Mesa/`metal2vulkan` re-pins, following
+  `docs/MAINTENANCE.md`. Automated re-pinning is not used.
+- **Why:** the seam patches the JM submission path and the sync layer; a
+  mechanical version bump is exactly where a silent semantic change hides. A
+  human who reads the diff is cheaper than a GPU hang on the phone.
+- **Consequence:** `deps/deps.toml` and the docs are edited together, in a commit
+  that changes no behaviour, before the patch series is rebased.
 - **Date:** 2026-10-31.

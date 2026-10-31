@@ -42,18 +42,24 @@ Third-party material
 
 1. metal2vulkan
    SPDX-License-Identifier: GPL-2.0-or-later OR LGPL-3.0-or-later
+   Copyright Anees Iqbal and contributors.
+   Pinned revision: 219f01365dc4c8eb346816c405b5b17403793764
+   https://github.com/steelbrain/metal2vulkan
    Linked unmodified from its own source; nothing of it is copied here. It is
    the runtime behind bridge/NativeMetalObjects.rs.
+   This repository elects the GPL-2.0-or-later option under GPLv2 terms, so the
+   combined work stays GPL-2.0-only. The LGPL-3.0-or-later option is not used.
+   The licence is verified by tools/deps.py against deps/deps.toml.
 
 2. Mesa — PanVK and the Panfrost/Bifrost compiler
    SPDX-License-Identifier: MIT (per file)
    Copyright © 2019-2026 Collabora Ltd., Alyssa Rosenzweig, Broadcom and other
    Mesa contributors.
    Used as a pinned dependency through a patch series; no Mesa source is
-   committed in this repository. The pinned base is commit
-   e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae of
-   https://gitlab.freedesktop.org/mesa/mesa, read through the read-only mirror
-   https://github.com/mirror/mesa. The patches keep Mesa's MIT headers.
+   committed in this repository. The pinned base is tag mesa-26.2.6, commit
+   8e87a503ebd91408c88596d1b9eeb5f4c0b2088d, from
+   https://gitlab.freedesktop.org/mesa/mesa (canonical; the GitHub mirror is not
+   used for the pin). The patches keep Mesa's MIT headers.
 
 3. NativeMali
    SPDX-License-Identifier: GPL-2.0-only

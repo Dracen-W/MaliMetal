@@ -11,7 +11,7 @@ gaps immediately, so the kernel must be proven first.
 | Milestone | State | Exit condition |
 | --- | --- | --- |
 | MM0 repository, licences, design, porting map | **done** | this scaffold is committed in its own repository |
-| MM1 pin dependencies and reproduce a build | Mesa/PanVK pinned; `metal2vulkan` open | `metal2vulkan` pinned with hashes; a host build of the frontend/runtime exists |
+| MM1 pin dependencies and reproduce a build | pins done; build not reproduced | a host build of the frontend/runtime exists |
 | MM2 userspace NativeMali ABI client | not started | pure encode/decode, BO/VA/fence state machines host-tested |
 | MM3 `pan_kmod` seam | chosen: Option A; not started | chosen seam compiles against the pinned Mesa; fake-service tests pass |
 | MM4 PanVK device on the phone | blocked | device creation and one job complete on hardware |
@@ -30,14 +30,18 @@ gaps immediately, so the kernel must be proven first.
 
 ## MM1 — pin dependencies
 
-- [ ] Pin `metal2vulkan` to a commit and record the hash and licence in
-      `docs/DEPENDENCIES.md`.
-- [x] Pin Mesa to a commit that contains PanVK's JM path and `pan_kmod`:
-      `e24dc5bd1e7fe6101bdc866fb16a15a8fcae1aae` (2026-05-29), with the
-      seam-relevant files and sha256 in `docs/DEPENDENCIES.md`.
+- [x] Pin `metal2vulkan` to a commit and record the hashes and licence in
+      `docs/DEPENDENCIES.md`: `219f01365dc4c8eb346816c405b5b17403793764`,
+      GPL-2.0-or-later OR LGPL-3.0-or-later (not MIT).
+- [x] Pin Mesa to a release tag that contains PanVK's JM path and `pan_kmod`:
+      `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`, from the
+      official GitLab, with file hashes in `deps/deps.toml`.
+- [x] Provide `tools/deps.py` so a build can refuse a mismatched checkout.
 - [ ] Re-verify those hashes before applying any patch. A mismatch is a stop,
       not a rebase.
-- [ ] Record the toolchain (clang, Rust, linker, deployment target).
+- [x] Name who rebases the patch series when Mesa moves: the repository owner,
+      per `docs/MAINTENANCE.md` and D13.
+- [ ] Record the toolchain (clang, Rust ≥ 1.98, linker, deployment target).
 - [ ] Reproduce the `metal2vulkan` runtime + `NativeMetalObjects.rs` bridge on
       the host, without a GPU, using the reference's build entry point as the
       model.
@@ -46,7 +50,6 @@ gaps immediately, so the kernel must be proven first.
       Do not commit a Mesa checkout here.
 - [ ] Confirm that the target's PanVK can be built for the target OS and ABI,
       not only for Linux/Android.
-- [ ] Name who rebases the patch series when Mesa moves.
 
 ## MM2 — userspace NativeMali ABI client
 
