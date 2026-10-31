@@ -124,8 +124,12 @@ Every push runs `.github/workflows/host-tests.yml`:
 
 - a macOS runner checks out `Dracen-W/Mali-G52` as `.kernel`, points
   `MALI_G52_DIR` at it, and runs `tests/run.sh` and `tests/run.sh --san`;
-- a small Linux job fetches `metal2vulkan` at the revision in
-  `deps/deps.toml` and verifies the recorded hashes with `tools/deps.py`.
+- a Linux job fetches `metal2vulkan` at the revision in `deps/deps.toml` and
+  verifies the recorded hashes with `tools/deps.py`;
+- a macOS job fetches the pinned `metal2vulkan` and AdrenoMetal, applies
+  AdrenoMetal's patch series and builds the Metal bridge
+  (`tools/build-bridge-host.sh`), the same combination the frontend links
+  against.
 
 Mesa is not fetched in CI (the tree is large). Verify it locally:
 

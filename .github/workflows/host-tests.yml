@@ -61,3 +61,28 @@ jobs:
 
       - name: Verify the recorded file hashes
         run: python3 tools/deps.py verify --checkout metal2vulkan=.deps/metal2vulkan
+
+  # The dependency chain that the Metal frontend actually links against:
+  # official AdrenoMetal + the pinned metal2vulkan + the patch series, compiled
+  # as a static library. This is the check that would have caught the wrong
+  # metal2vulkan pin.
+  bridge:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the pinned checkouts
+        run: python3 tools/deps.py fetch --dest .deps --id metal2vulkan --id adrenometal
+
+      - name: Verify the recorded hashes
+        run: python3 tools/deps.py verify --checkout metal2vulkan=.deps/metal2vulkan --checkout adrenometal=.deps/adrenometal
+
+      - name: Install LLVM (llvm-as)
+        run: brew install llvm
+
+      - name: Build the bridge
+        env:
+          LLVM_AS: /opt/homebrew/opt/llvm/bin/llvm-as
+          METAL2VULKAN_DIR: ${{ github.workspace }}/.deps/metal2vulkan
+          ADRENOMETAL_DIR: ${{ github.workspace }}/.deps/adrenometal
+        run: tools/build-bridge-host.sh

@@ -18,7 +18,7 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 
 | Dependency | Role | Licence | State |
 | --- | --- | --- | --- |
-| **AdrenoMetal** | architecture, Metal frontend, C object ABI, runtime integration, test model | MIT | pinned: [`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3) |
+| **AdrenoMetal** | architecture, Metal frontend, C object ABI, bridge source, test model | MIT | pinned: [`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3); fetched by `tools/deps.py` for the bridge build |
 | **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `720ef1ce9ae2a2068999a8675717418b9416283e`; see below |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`; see below |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |

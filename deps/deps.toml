@@ -109,3 +109,33 @@ sha256 = "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
 [[dependency.file]]
 path = "LICENSE-LGPL-3.0"
 sha256 = "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+
+# ---------------------------------------------------------------------------
+# AdrenoMetal: the Metal frontend and the bridge source. Not shipped as a
+# library: the bridge is compiled against the pinned metal2vulkan after applying
+# its patch series, and the frontend is imported byte-identical (NOTICE).
+#
+# MIT. The reference copy under AdrenoMetal-reference/ is gitignored; this pin
+# exists so CI can fetch the exact tree the patches were made for.
+# ---------------------------------------------------------------------------
+[[dependency]]
+id = "adrenometal"
+role = "Metal API frontend, Metal object C ABI and the bridge source"
+repository = "https://github.com/UniXNU/AdrenoMetal"
+tag = ""
+revision = "454ff2ce83766ce7b3e0f355e83f1d72907708b3"
+revision_date = "2026-10-24"
+licence = "MIT"
+patch_series = ""
+
+[[dependency.file]]
+path = "NativeMetalObjects.h"
+sha256 = "4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14"
+
+[[dependency.file]]
+path = "NativeBridgeMetalFrontend.mm"
+sha256 = "eadbba1bf6cd5823199546402cc58904154c0775701d9c691ddc19ba882fd996"
+
+[[dependency.file]]
+path = "bridge/NativeMetalBridge.rs"
+sha256 = "10bc30e6f2f9ee8c9d92d16f3355c2fa9698f228e7462b01efb6ec750ab76862"
