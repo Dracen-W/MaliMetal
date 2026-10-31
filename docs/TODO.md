@@ -78,8 +78,15 @@ This is pure logic and must be testable without a phone.
 - [x] IOVA allocator: alignment, first-fit, no overlap, no reuse while a
       submitted job may still reference the range (quarantine until the exact
       fence completes, `release_all` on reset). Host-tested.
-- [ ] Fence tracker: opaque fences, dependency waits, timeout, reset
-      invalidation, `GetStatus::faults/resets` changes.
+- [x] Fence tracker: opaque identity only, Pending/Signaled/Lost, `lose_all()` on
+      reset, forget after consumption, capacity refusal (`NativeMaliFenceTracker`,
+      host-tested).
+- [x] Lifecycle coordinator: alloc/map/free with rollback, guarded free into the
+      IOVA quarantine, `wait` that only resolves on a successful `WaitFence`, and
+      `reset` that loses pending fences and releases quarantined ranges while
+      keeping buffers and mappings (`NativeMaliDevice`, host-tested).
+- [ ] Fault detection: poll `GetStatus::faults/resets`, and when it changes,
+      mark pending fences Lost and report `DeviceLost` instead of retrying.
 - [ ] Device-info cache: `gpu_id`, present masks, thread limits, feature words,
       non-coherent flag, VA size.
 - [ ] Fake service for tests that answers records from a scripted state, not

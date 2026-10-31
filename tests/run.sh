@@ -49,6 +49,20 @@ build/tests/test_iova_allocator
     -o build/tests/test_bo_table
 build/tests/test_bo_table
 
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
+    -Ibuild/abi -Isrc/native_mali \
+    src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliAbiTable.cpp \
+    src/native_mali/NativeMaliBoTable.cpp src/native_mali/NativeMaliIovaAllocator.cpp \
+    src/native_mali/NativeMaliFenceTracker.cpp src/native_mali/NativeMaliDevice.cpp \
+    tests/test_device_lifecycle.cpp -o build/tests/test_device_lifecycle
+build/tests/test_device_lifecycle
+
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror \
+    -Ibuild/abi -Isrc/native_mali \
+    src/native_mali/NativeMaliFenceTracker.cpp tests/test_fence_tracker.cpp \
+    -o build/tests/test_fence_tracker
+build/tests/test_fence_tracker
+
 if [ -n "${MALI_DEPS_DIR:-}" ]; then
     python3 tools/deps.py verify --require-all \
         --checkout "mesa=$MALI_DEPS_DIR/mesa" \

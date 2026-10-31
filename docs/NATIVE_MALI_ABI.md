@@ -51,6 +51,28 @@ It refuses a duplicate handle, a second mapping, an unaligned or zero IOVA, a
 write-only mapping (the header requires read), an unknown permission bit, a
 token that does not match, and a full table.
 
+`src/native_mali/NativeMaliFenceTracker.{h,cpp}` records fences by identity
+only. A fence cannot be compared or decoded, so the tracker has three outcomes
+(`Pending`, `Signaled`, `Lost`) and no ordering. A reset turns every pending
+fence into `Lost` and never into `Signaled`; a lost fence cannot be revived by a
+later successful wait.
+
+`src/native_mali/NativeMaliDevice.{h,cpp}` is the lifecycle above them:
+
+- `alloc` asks the kernel, then records; a refused record frees the kernel
+  allocation instead of leaking it;
+- `map` reserves an IOVA, asks the kernel, then records; a refused call or a
+  reply that moved the address releases the reservation;
+- `free` asks the kernel first, then drops the record and releases the address;
+  a guarded free quarantines the IOVA until that exact fence completes;
+- `wait` marks the fence `Signaled` and releases its quarantined ranges only
+  when `WaitFence` succeeded;
+- `reset` loses pending fences and releases quarantined ranges, and keeps the
+  buffers and mappings, as the header says `Reset` does.
+
+Every one of those paths is covered by `tests/test_device_lifecycle.cpp`,
+including the rollbacks and the "lost fence cannot be revived" case.
+
 The ABI is fixed-size, little-endian, ARM64-to-ARM64. Every method has exactly
 one input record and one output record, either of which may be absent. A
 mismatched size, version, method or flag is refused, never ignored. An output
