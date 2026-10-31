@@ -70,6 +70,12 @@ This is pure logic and must be testable without a phone.
 Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2.
 
 - [ ] Add the chosen backend to the pinned Mesa tree via `patches/`.
+- [ ] Replace the JM submission call: a `pan_kmod` submit op instead of
+      `pan_kmod_ioctl(DRM_IOCTL_PANFROST_SUBMIT)`, including the BO list,
+      requirements and in/out fences.
+- [ ] Replace the DRM syncobj use in the JM queue (`drmSyncobjCreate`,
+      `drmSyncobjWait`, `drmSyncobjDestroy`, `SYNCOBJ_*` ioctls) with a
+      `vk_sync` implementation that can represent a `NativeMali` fence.
 - [ ] Device creation without a DRM fd/version; report properties from
       `GetDeviceInfo`, not from `/dev/dri`.
 - [ ] BO alloc/free/map/unmap over methods 3–5.

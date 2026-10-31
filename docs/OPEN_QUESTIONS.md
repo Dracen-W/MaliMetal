@@ -48,9 +48,18 @@ Evidence:
   `vk_drm_syncobj_get_type(device->kmod.dev->fd)`.
 - `src/panfrost/lib/kmod/panfrost_kmod.c` uses `DRM_IOCTL_PANFROST_*` for
   parameters, BOs, waits, cache syncs and labels.
+- `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c:panvk_queue_submit_batch()`
+  calls `pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, ...)` directly
+  and passes a `struct drm_panfrost_submit` with `bo_handles`, `in_syncs`,
+  `out_sync`, `jc` and `requirements`.
+- The same JM file creates/waits/destroys DRM syncobjs with `drmSyncobj*` and
+  `DRM_IOCTL_SYNCOBJ_*`; `gpu_queue_submit()` asserts every wait/signal is a
+  DRM syncobj.
 
 Question: approve Option A, or require B/C? If A, approve that the patch series
-may touch PanVK's mmap/sync paths, not only `pan_kmod`.
+may touch the JM submission path and the Vulkan sync layer, not only
+`pan_kmod`. If that maintenance burden is unacceptable, say so now, because
+Option B is a much larger kernel project.
 
 ## 3. Kernel ABI gaps for a Vulkan driver — measured, decision needed
 

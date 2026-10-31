@@ -144,6 +144,41 @@ opaque fences.
 A `pan_kmod` vtable alone is therefore **not sufficient**. The seam must also
 abstract the fd-based mmap and sync paths. The options are compared below.
 
+#### What PanVK actually calls
+
+The Job Manager path does not go through `pan_kmod` for submission. It calls
+libdrm/ioctls directly:
+
+- `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c:panvk_queue_submit_batch()`
+  fills a `struct drm_panfrost_submit` (`bo_handles`, `in_syncs`, `out_sync`,
+  `jc`, `requirements`) and calls
+  `pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, &submit)`.
+- The same file creates and manipulates DRM syncobjs:
+  `drmSyncobjCreate()`, `drmSyncobjWait()`, `drmSyncobjDestroy()`,
+  `DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD`, `DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE` and
+  `DRM_IOCTL_SYNCOBJ_RESET`.
+- `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c:gpu_queue_submit()` asserts that
+  every wait/signal is a DRM syncobj
+  (`vk_sync_type_is_drm_syncobj()` / `vk_sync_as_drm_syncobj()`).
+- The job chain itself is built before this point and is already the Bifrost v7
+  chain that `NativeMali::Submit` expects. The gap is the **submission and
+  synchronization contract**, not the command stream.
+
+So Option A is a patch series that must replace at least:
+
+| Mesa file | Why |
+| --- | --- |
+| `src/panfrost/vulkan/panvk_physical_device.c` | device creation, DRM version check, sync types |
+| `src/panfrost/lib/kmod/pan_kmod.{h,c}` | device creation without a DRM fd; mmap/wait abstraction |
+| `src/panfrost/lib/kmod/panfrost_kmod.c` | backend over `NativeMali` (or a new file) |
+| `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c` | replace `DRM_IOCTL_PANFROST_SUBMIT` and DRM syncobjs |
+| `src/vulkan/runtime/vk_sync*` | a non-DRM sync object type for the XNU target |
+
+This is a larger patch surface than "add one `pan_kmod` backend". It is still
+smaller than implementing the Panfrost DRM UAPI in the kernel (Option B), but
+the estimate must include it. The exact file list must be re-checked against the
+pinned Mesa commit before MM3 starts.
+
 ### 6. NativeMali ABI
 
 The canonical header is `Mali-G52/NativeMaliABI.h`. MaliMetal consumes a subset:
@@ -266,10 +301,15 @@ Advantages:
 
 Costs:
 
-- PanVK still reaches around the vtable in a few places (mmap, syncobj), so this
-  is a Mesa patch series, not a single new file;
+- PanVK reaches around the vtable for job submission and syncobjs (see "What
+  PanVK actually calls" above), so this is a Mesa patch series, not a single
+  new file;
+- the JM queue and the Vulkan sync layer must both be touched, not only
+  `pan_kmod`;
 - every Mesa update needs a rebase;
-- the backend must reproduce panfrost's implicit VA assignment in userspace.
+- the backend must reproduce panfrost's implicit VA assignment in userspace;
+- the patch series must be tested against a fake service before it ever reaches
+  the phone.
 
 ### Option B — Panfrost-compatible kernel UAPI
 
@@ -309,9 +349,11 @@ Costs:
 
 Option A is the smallest honest seam, but it must not be started before the
 `NativeMali` ABI has run a real job on the phone. The decision is recorded in
-`docs/DECISIONS.md` as **open**, with the evidence above. If measurement shows
-that PanVK's fd/sync assumptions are too pervasive, Option B becomes the
-fallback; Option C is not preferred.
+`docs/DECISIONS.md` as **open**, with the evidence above. The direct
+`DRM_IOCTL_PANFROST_SUBMIT` and `drmSyncobj*` calls in the JM queue mean that
+Option A is a real Mesa patch series, not a drop-in backend. If the owner is not
+willing to maintain that series, Option B is the only way to run upstream PanVK
+unmodified; Option C is not preferred.
 
 ## Memory and coherency
 
