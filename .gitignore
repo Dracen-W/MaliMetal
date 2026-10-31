@@ -1,0 +1,52 @@
+# local reference copies: development inputs, never committed
+AdrenoMetal-reference/
+AdrenoMetal/
+Adreno-reference/
+NativeAdreno-reference/
+NativeAdreno-reference-old/
+Adreno740-main/
+Adreno740-main-new/
+workfile/
+other reference/
+
+# dependency checkouts
+third_party/mesa/
+third_party/mesa-*/
+third_party/metal2vulkan/
+third_party/metal2vulkan-*/
+third_party/drm/
+third_party/drm-*/
+third_party/mtk-android/
+
+# build output and caches
+build/
+build-*/
+out/
+target/
+*.o
+*.a
+*.dylib
+*.so
+*.bundle
+*.kext
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# editor and OS noise
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# archives and patches that should not be added accidentally
+*.tar
+*.tar.gz
+*.tar.xz
+*.tgz
+*.zip
+
+# local logs and measurements
+*.log
+*.trace

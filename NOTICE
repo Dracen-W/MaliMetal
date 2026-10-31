@@ -1,0 +1,84 @@
+MaliMetal
+Copyright (C) 2026 Dracen
+
+This project as a whole is distributed under GPL-2.0-only (see LICENSE),
+because the MaliMetal plugin and backend are derived from AdrenoMetal, whose
+MIT licence permits relicensing, and because the port is built for the
+GPL-2.0-only NativeMali driver. Individual files keep the licence in their own
+SPDX header. The derivation of every AdrenoMetal-derived file is recorded in
+its header.
+
+--------------------------------------------------------------------------------
+AdrenoMetal — the upstream project this port is based on
+
+  AdrenoMetal
+  Metal API frontend and metal2vulkan translation
+  https://github.com/UniXNU/AdrenoMetal
+
+  MIT License
+  Copyright (c) 2026 NativeMetal contributors
+
+  AdrenoMetal is the origin of the architecture and of the reusable frontend:
+  the Metal API frontend (NativeBridgeMetalFrontend.mm), the Metal-object C ABI
+  (bridge/NativeMetalObjects.h and .rs), the metal2vulkan integration
+  (bridge/NativeMetalBridge.*), the offline command wire model, the plugin
+  discovery/publish design, the host-test style, and the Metal self-test
+  structure. This repository's contribution is the Mali-specific port: the
+  PanVK backend seam, the NativeMali ABI client, the MT6768 plugin and scanout
+  path, and the tests for those pieces.
+
+  A local reference copy is kept in AdrenoMetal-reference/ for development.
+  It is gitignored and is never committed, built into the product, or
+  presented as part of this repository.
+
+  The MIT terms that apply to AdrenoMetal-derived material are reproduced at
+  the end of this file.
+
+--------------------------------------------------------------------------------
+Third-party material
+
+1. metal2vulkan
+   SPDX-License-Identifier: GPL-2.0-or-later OR LGPL-3.0-or-later
+   Linked unmodified from its own source; nothing of it is copied here. It is
+   the runtime behind bridge/NativeMetalObjects.rs.
+
+2. Mesa — PanVK and the Panfrost/Bifrost compiler
+   SPDX-License-Identifier: MIT (per file)
+   Copyright © 2019-2026 Collabora Ltd., Alyssa Rosenzweig, Broadcom and other
+   Mesa contributors.
+   Used as a pinned dependency through a patch series; no Mesa source is
+   committed in this repository. The patches keep Mesa's MIT headers.
+
+3. NativeMali
+   SPDX-License-Identifier: GPL-2.0-only
+   The kernel driver and the fixed wire ABI (NativeMaliABI.h) live in the
+   separate Mali-G52 repository. This repository consumes the ABI; it does not
+   relicense or duplicate the driver.
+
+4. Device facts
+   The GPU identity, register window, device tree and measured clock/voltage
+   facts are recorded in Mali-G52/docs/DEVICE.md with their raw sources. They
+   are not restated here as new measurements.
+
+--------------------------------------------------------------------------------
+MIT licence text, as it applies to AdrenoMetal-derived material
+
+Copyright (c) 2026 NativeMetal contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
