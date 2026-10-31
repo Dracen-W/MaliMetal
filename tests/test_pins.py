@@ -130,6 +130,20 @@ def main() -> int:
         "NOTICE does not reproduce the AdrenoMetal MIT attribution",
     )
 
+    # The imported Metal object ABI is only worth anything if it is the pinned
+    # upstream file, byte for byte.
+    bridge = ROOT / "src" / "bridge" / "NativeMetalObjects.h"
+    bridge_hash = hashlib.sha256(bridge.read_bytes()).hexdigest()
+    check(
+        bridge_hash
+        == "40c30763bad51f551d9eaf8c956acbeb2ea8c5064802a213d9b3c337efe24837",
+        f"src/bridge/NativeMetalObjects.h is not the pinned AdrenoMetal file ({bridge_hash})",
+    )
+    check(
+        bridge_hash in notice,
+        "NOTICE does not record the imported header's hash",
+    )
+
     # Every source file states its licence in an SPDX header. This is the cheap
     # guard for "always keep the licence and the credit": a copied file without
     # its header fails here before it is committed.

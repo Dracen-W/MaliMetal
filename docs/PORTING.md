@@ -58,7 +58,7 @@ and is recorded in `NOTICE`. Files that are rewritten for Mali get a
 
 | File | Decision | Reason / required change |
 | --- | --- | --- |
-| `NativeMetalObjects.h` | **reuse unchanged** | The backend-neutral C ABI. Adding a function is allowed only when the Metal frontend needs it; removing or changing one breaks the frontend. |
+| `NativeMetalObjects.h` | **imported unchanged** at `src/bridge/NativeMetalObjects.h` (sha256 pinned, `tests/test_pins.py`) | The backend-neutral C ABI. Adding a function is allowed only when the Metal frontend needs it; removing or changing one breaks the frontend. |
 | `NativeMetalObjects.rs` | **reuse unchanged** | Wraps the pinned `metal2vulkan` runtime. No Turnip or Adreno code. |
 | `NativeMetalBridge.h` | **reuse** | Self-test C ABI. |
 | `NativeMetalBridge.rs` | **reuse** | Self-test body. Change the loader argument to the PanVK ICD and the fixture set if needed. |

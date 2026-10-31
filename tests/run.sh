@@ -59,6 +59,13 @@ python3 tests/test_pins.py
 python3 tools/sync-abi.py
 mkdir -p build/tests
 
+# The imported Metal object ABI must compile on its own, as C and as C++.
+# This is a contract check, not a build: nothing is linked or called.
+printf '%s\n' "check  Metal object ABI header (C11 and C++17)"
+cc -std=c11 -Wall -Wextra -Werror -fsyntax-only -Isrc/bridge tests/test_bridge_header.c
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -fsyntax-only -Isrc/bridge \
+    tests/test_bridge_header.cpp
+
 abi_sources="src/native_mali/NativeMaliAbiTable.cpp"
 client_sources="$abi_sources src/native_mali/NativeMaliClient.cpp src/native_mali/NativeMaliError.cpp"
 lifecycle_sources="$client_sources src/native_mali/NativeMaliBoTable.cpp \

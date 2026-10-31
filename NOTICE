@@ -35,6 +35,12 @@ AdrenoMetal — the upstream project this port is based on
   PanVK backend seam, the NativeMali ABI client, the MT6768 plugin and scanout
   path, and the tests for those pieces.
 
+  Imported file: src/bridge/NativeMetalObjects.h, byte-identical to
+  bridge/NativeMetalObjects.h at the pinned revision.
+  sha256 40c30763bad51f551d9eaf8c956acbeb2ea8c5064802a213d9b3c337efe24837
+  It keeps its SPDX-License-Identifier: MIT line; tests/test_pins.py enforces
+  the hash and the attribution.
+
   A local reference copy is kept in AdrenoMetal-reference/ for development.
   It was verified byte-for-byte against the pinned revision on 2026-10-31.
   It is gitignored and is never committed, built into the product, or
