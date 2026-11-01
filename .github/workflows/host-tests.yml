@@ -145,6 +145,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential meson ninja-build pkg-config \
             libdrm-dev python3-mako python3-yaml llvm llvm-dev libclang-dev clang cmake
+          # Mesa's clc build also looks for clang-cpp; the package name follows
+          # the LLVM version on some Ubuntu releases.
+          sudo apt-get install -y libclang-cpp-dev \
+            || sudo apt-get install -y libclang-cpp18-dev \
+            || true
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
@@ -174,6 +179,7 @@ jobs:
       - name: Configure the Vulkan driver
         run: |
           PKG_CONFIG_PATH="$PWD/spirv-prefix/lib/pkgconfig" \
+          CMAKE_PREFIX_PATH="$PWD/spirv-prefix" \
           meson setup mesa/build mesa \
             -Dvulkan-drivers=panfrost \
             -Dgallium-drivers= \
