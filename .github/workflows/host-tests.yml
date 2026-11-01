@@ -124,7 +124,8 @@ jobs:
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
             -Dllvm=disabled -Dplatforms= \
             -Dmicrosoft-clc=disabled \
-            -Dzstd=disabled
+            -Dzstd=disabled \
+            -Dc_args=-I${{ github.workspace }}/src/backend
 
       - name: Build the pan_kmod unit
         run: ninja -C mesa/build src/panfrost/lib/kmod/libpankmod_lib.a

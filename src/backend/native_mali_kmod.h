@@ -31,6 +31,13 @@ extern "C" {
 
 typedef struct NativeMaliKmod NativeMaliKmod;
 
+/* Same values as NativeMaliBoRead/Write in the kernel ABI, restated so a
+ * consumer of this header does not also need NativeMaliABI.h. */
+enum {
+    NATIVE_MALI_PERMISSION_READ = 1u << 0,
+    NATIVE_MALI_PERMISSION_WRITE = 1u << 1,
+};
+
 typedef enum NativeMaliResult {
     NATIVE_MALI_RESULT_OK = 0,
     NATIVE_MALI_RESULT_INVALID_ARGUMENT,
