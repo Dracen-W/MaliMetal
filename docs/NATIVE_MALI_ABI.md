@@ -142,6 +142,28 @@ record is untouched unless the call succeeded.
 
 ## Gaps and consequences
 
+### `pan_kmod_dev_props` needs fields v1 does not carry
+
+`struct pan_kmod_dev_props` (Mesa `pan_kmod.h:193-260` at the pinned commit)
+needs, beyond what `GetDeviceInfo` returns:
+
+`gpu_variant`, `mem_features`, `mmu_features` (the VA-bit count),
+`texture_features[4]`, `max_tasks_per_core`, `num_registers_per_core`,
+`max_tls_instance_per_core`, `afbc_features`, `pgsize_bitmap` and
+`supported_vm_op_flags`, plus the timestamp capabilities.
+
+`GetDeviceInfo` has `gpu_id`, the shader/tiler present masks, the thread limits,
+`l2/core/tiler_features`, the non-coherent flag and the VA range. A backend
+cannot fill the rest without reading registers itself — which this ABI forbids —
+or guessing.
+
+Consequence: **the `pan_kmod` backend patch is blocked on a v2 `GetDeviceInfo`**,
+and on the kernel probe actually reading those registers (`GPU_MMU_FEATURES`,
+`GPU_MEM_FEATURES`, `GPU_TEXTURE_FEATURES_*`, `GPU_THREAD_*`, `GPU_AFBC_FEATURES`,
+`GPU_ID` variant bits). The requirement is recorded in
+`Mali-G52/docs/OPEN_QUESTIONS.md`; it is a kernel change, not a MaliMetal one.
+Do not invent values to "unblock" the patch.
+
 ### No job `requirements` or affinity
 
 Panfrost computes a job's shader-core affinity from its requirements. The
