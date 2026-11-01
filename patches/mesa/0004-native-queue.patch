@@ -1,0 +1,144 @@
+# MaliMetal patch 0004: a queue that submits through pan_kmod ops.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0002/0003 (native backend and submit/wait ops).
+#
+# When the device has ops->submit (no DRM fd), queue creation skips
+# drmSyncobjCreate and installs a native submit path. That path submits the
+# vertex/tiler job and then the fragment job with the first one as its
+# dependency. Binary semaphores and Vulkan events are DRM syncobjs in this
+# backend and have no native equivalent yet, so a submit that uses them returns
+# VK_ERROR_FEATURE_NOT_PRESENT instead of pretending to work. QueueWaitIdle
+# waits on the last opaque fence through ops->wait_fence.
+#
+# The DRM path is untouched. Compiled by the mesa-panvk CI job; it has not been
+# run on hardware.
+diff --git a/src/panfrost/vulkan/jm/panvk_queue.h b/src/panfrost/vulkan/jm/panvk_queue.h
+index 89b63a2..e27f55a 100644
+--- a/src/panfrost/vulkan/jm/panvk_queue.h
++++ b/src/panfrost/vulkan/jm/panvk_queue.h
+@@ -19,6 +19,12 @@
+ struct panvk_gpu_queue {
+    struct vk_queue vk;
+    uint32_t sync;
++
++   /* Set when the device has ops->submit (no DRM). The queue then owns an
++    * opaque fence instead of a DRM syncobj, and external semaphores/events are
++    * refused rather than emulated. */
++   bool native;
++   uint64_t last_fence;
+ };
+
+ VK_DEFINE_HANDLE_CASTS(panvk_gpu_queue, vk.base, VkQueue, VK_OBJECT_TYPE_QUEUE)
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index bc1bc0f..4702778 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -228,6 +228,67 @@ panvk_signal_event_syncobjs(struct panvk_gpu_queue *queue,
+    }
+ }
+
++static VkResult
++panvk_queue_submit_batch_native(struct panvk_gpu_queue *queue,
++                                struct panvk_batch *batch)
++{
++   struct panvk_device *dev = to_panvk_device(queue->vk.base.device);
++   const struct pan_kmod_ops *ops = dev->kmod.dev->ops;
++   uint64_t fence = 0;
++
++   /* Vulkan events are DRM syncobjs in this backend; there is no native
++    * equivalent yet, so a batch that uses one is refused rather than faked. */
++   if (util_dynarray_num_elements(&batch->event_ops,
++                                  struct panvk_cmd_event_op) != 0)
++      return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
++
++   if (batch->vtc_jc.first_job) {
++      struct pan_kmod_submit vtc = {.job_chain = batch->vtc_jc.first_job};
++      if (ops->submit(dev->kmod.dev, &vtc, &fence))
++         return panvk_error(dev, VK_ERROR_DEVICE_LOST);
++      queue->last_fence = fence;
++   }
++
++   if (batch->frag_jc.first_job) {
++      struct pan_kmod_submit frag = {
++         .job_chain = batch->frag_jc.first_job,
++         .wait_fence = batch->vtc_jc.first_job ? queue->last_fence : 0,
++      };
++      if (ops->submit(dev->kmod.dev, &frag, &fence))
++         return panvk_error(dev, VK_ERROR_DEVICE_LOST);
++      queue->last_fence = fence;
++   }
++
++   return VK_SUCCESS;
++}
++
++static VkResult
++panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
++                                        struct vk_queue_submit *submit)
++{
++   struct panvk_gpu_queue *queue =
++      container_of(vk_queue, struct panvk_gpu_queue, vk);
++   struct panvk_device *dev = to_panvk_device(queue->vk.base.device);
++
++   /* Binary semaphores are DRM syncobjs in this backend. Until a native
++    * vk_sync type exists, a submit that waits or signals one is refused. */
++   if (submit->wait_count != 0 || submit->signal_count != 0)
++      return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
++
++   for (uint32_t j = 0; j < submit->command_buffer_count; ++j) {
++      struct panvk_cmd_buffer *cmdbuf =
++         container_of(submit->command_buffers[j], struct panvk_cmd_buffer, vk);
++
++      list_for_each_entry(struct panvk_batch, batch, &cmdbuf->batches, node) {
++         VkResult result = panvk_queue_submit_batch_native(queue, batch);
++         if (result != VK_SUCCESS)
++            return result;
++      }
++   }
++
++   return VK_SUCCESS;
++}
++
+ VkResult
+ panvk_per_arch(gpu_queue_submit)(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
+ {
+@@ -349,6 +410,14 @@ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+    if (result != VK_SUCCESS)
+       goto err_free_queue;
+
++   /* A backend with ops->submit has no DRM fd and no syncobjs. */
++   if (device->kmod.dev->ops->submit) {
++      queue->native = true;
++      queue->vk.driver_submit = panvk_per_arch(gpu_queue_submit_native);
++      *out_queue = &queue->vk;
++      return VK_SUCCESS;
++   }
++
+    int ret = drmSyncobjCreate(device->drm_fd, DRM_SYNCOBJ_CREATE_SIGNALED,
+                               &queue->sync);
+    if (ret) {
+@@ -374,7 +443,8 @@ void panvk_per_arch(destroy_gpu_queue)(struct vk_queue *vk_queue)
+    struct panvk_device *dev = to_panvk_device(vk_queue->base.device);
+
+    vk_queue_finish(&queue->vk);
+-   drmSyncobjDestroy(dev->drm_fd, queue->sync);
++   if (!queue->native)
++      drmSyncobjDestroy(dev->drm_fd, queue->sync);
+    vk_free(&dev->vk.alloc, queue);
+ }
+
+@@ -399,6 +469,14 @@ panvk_per_arch(QueueWaitIdle)(VkQueue _queue)
+       return VK_ERROR_DEVICE_LOST;
+    }
+
++   if (queue->native) {
++      if (dev->kmod.dev->ops->wait_fence && queue->last_fence != 0 &&
++          dev->kmod.dev->ops->wait_fence(dev->kmod.dev, queue->last_fence,
++                                         INT64_MAX))
++         return VK_ERROR_DEVICE_LOST;
++      return VK_SUCCESS;
++   }
++
+    ASSERTED int ret = drmSyncobjWait(dev->drm_fd, &queue->sync, 1,
+                                      INT64_MAX, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+                                      NULL);

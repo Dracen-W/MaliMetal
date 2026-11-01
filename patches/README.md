@@ -63,8 +63,9 @@ ABI v2 now carries the fields; the remaining input is the measured values.
 | `0002-bo-vm` | alloc/free/map over the facade | fake-service test |
 | `0003-bo-wait` | refuse unless a tracked fence proves completion | fake-service test |
 | `0004-device-creation` | physical-device path without `/dev/dri`, sync types | needs the submission patch |
-| `0005-submit` | replace `DRM_IOCTL_PANFROST_SUBMIT` in the JM queue | needs the kernel ABI's submit semantics |
-| `0006-sync` | native `vk_sync` for opaque fences | needs `0005` |
+| `0004-native-queue` | **written**: a queue that submits through the ops and refuses semaphores/events | compiled by `mesa-panvk` |
+| `0005-device-enumeration` | enumerate/创建 a device without `/dev/dri` (`panvk_physical_device.c`) | not written |
+| `0006-native-sync` | a `vk_sync` type for opaque fences, replacing DRM syncobjs | not written |
 | `0007-cache` | non-coherent mapping policy | needs the kernel cache-maintenance answer |
 
 No patch may claim success. Each one must state what it does **not** make work

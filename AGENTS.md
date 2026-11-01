@@ -21,9 +21,10 @@ page-table, power, clock and ABI fact.
 8. `docs/DEPENDENCIES.md` and `deps/deps.toml` — every pinned revision and hash.
 9. `docs/INTEGRATION.md` — what the kernel side must provide and the interfaces
    this repository exposes to it.
-10. `docs/MAINTENANCE.md` — the re-pin/rebase procedure; follow it before moving
+10. `docs/MESA_INTEGRATION.md` — the Mesa patch series and its ICD contract.
+11. `docs/MAINTENANCE.md` — the re-pin/rebase procedure; follow it before moving
     a dependency.
-11. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
+12. In `Mali-G52`: `README.md`, `docs/DEVICE.md`, `docs/OPEN_QUESTIONS.md`,
     `NativeMaliABI.h` and the header of every ABI method used.
 
 ## Non-negotiable rules
