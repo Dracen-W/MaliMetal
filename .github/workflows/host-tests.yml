@@ -147,9 +147,9 @@ jobs:
             libdrm-dev python3-mako python3-yaml llvm llvm-dev libclang-dev clang cmake
           # Mesa's clc build also looks for clang-cpp; the package name follows
           # the LLVM version on some Ubuntu releases.
-          sudo apt-get install -y libclang-cpp-dev \
-            || sudo apt-get install -y libclang-cpp18-dev \
-            || true
+          # CLC links the clang libraries; the runner's LLVM is 22.
+          sudo apt-get install -y libclang-cpp22-dev libclang-22-dev clang-22 \
+            || sudo apt-get install -y libclang-cpp-dev libclang-dev clang
 
 
       - name: Clone Mesa at the pinned tag
