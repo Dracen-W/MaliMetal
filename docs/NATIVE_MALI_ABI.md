@@ -109,7 +109,7 @@ record is untouched unless the call succeeded.
 | # | Name | Input | Output | MaliMetal use |
 | --- | --- | --- | --- | --- |
 | 1 | `Query` | 24 bytes | same | version, address bits, max BO bytes |
-| 2 | `GetDeviceInfo` | none | 64 bytes | GPU ID, masks, limits, feature words, non-coherent flag, VA range |
+| 2 | `GetDeviceInfo` | none | 64 (v1) or 112 (v2) bytes | GPU ID, masks, limits, feature words, non-coherent flag, VA range; v2 appends mem/MMU/AFBC/texture features, derived thread props, page shift and VM op flags |
 | 3 | `BoAlloc` | 8 bytes | 8 bytes | allocate a BO, get an opaque handle |
 | 4 | `BoMap` | 24 bytes | 8 bytes | map at a caller-chosen IOVA |
 | 5 | `BoFree` | 8 bytes | none | destroy a BO |
@@ -139,6 +139,20 @@ record is untouched unless the call succeeded.
 - **GetStatus / Reset** → device-lost detection and recovery. Reset is
   device-wide; it destroys every client's in-flight job and their fences answer
   `IOError`.
+
+## Version 2
+
+v2 is a strict prefix extension of v1: the first 64 bytes are unchanged, so a
+v1 caller asking for 64 bytes still gets a valid reply. Added:
+
+`mem_features`, `mmu_features`, `afbc_features`, `texture_features[4]`,
+`max_tasks_per_core`, `registers_per_core`, `tls_instances_per_core`,
+`pgsize_shift` (12) and `vm_op_flags` (map/unmap).
+
+They exist because `pan_kmod_dev_props` needs them and the alternative was
+reading registers in userspace. The kernel probe fills them; zero means the
+probe has not answered, not a real value. `docs/OPEN_QUESTIONS.md` in
+`Mali-G52` holds the field table; `deps/abi.sha256` pins the v2 header.
 
 ## Gaps and consequences
 

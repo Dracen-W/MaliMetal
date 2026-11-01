@@ -123,6 +123,8 @@ this milestone exposes are in `docs/INTEGRATION.md`.
 Depends on the seam decision in `docs/OPEN_QUESTIONS.md` item 2 (Option A) and on
 the pinned Mesa base in `docs/DEPENDENCIES.md`.
 
+- [x] ABI v2 (`GetDeviceInfo` 112 bytes, v1 prefix-compatible) in Mali-G52 and
+      this client/table/facade; `deps/abi.sha256` updated.
 - [x] Provide the C surface the patch maps onto
       (`src/backend/native_mali_kmod.{h,cpp}`, host-tested through the scripted
       service).

@@ -56,6 +56,14 @@ int main() {
     expect(props->non_coherent == 1, "non-coherent flag surfaced");
     expect(props->max_bo_bytes == (UINT64_C(1) << NativeMaliAbiMaxBoBytesShift), "BO limit");
     expect(props->va_size == (UINT64_C(1) << 48), "VA size from the device");
+    expect(props->mmu_features == ((40u << 8) | 48u), "v2 MMU features surfaced");
+    expect(props->afbc_features == 0x0000000F, "v2 AFBC features surfaced");
+    expect(props->texture_features[3] == 0x44440000, "v2 texture features surfaced");
+    expect(props->max_tasks_per_core == 2 && props->registers_per_core == 96,
+           "v2 derived thread props surfaced");
+    expect(props->pgsize_shift == NativeMaliAbiPageShift, "page shift surfaced");
+    expect(props->vm_op_flags == (NativeMaliAbiVmOpMap | NativeMaliAbiVmOpUnmap),
+           "VM operation flags surfaced");
 
     expect(native_mali_kmod_props(nullptr) == nullptr, "props of a null device");
 

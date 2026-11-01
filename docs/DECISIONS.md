@@ -186,3 +186,17 @@ Decisions already taken. Reopening one requires new evidence and an entry in
   one re-pin per Mesa major series (`26.2`, `26.3`, ...), taking the newest point
   release of that series; point releases are not tracked individually.
 - **Date:** 2026-10-31.
+
+## D14 — NativeMali ABI v2 is a prefix extension
+
+- **Decision:** adopt ABI v2 (112-byte `GetDeviceInfo`) by appending the fields
+  a `pan_kmod` backend needs. The v1 64-byte record stays valid and is a strict
+  prefix; `Query` echoes the version the caller asked for.
+- **Why:** without these fields the backend would have to read registers in
+  userspace (forbidden by D6) or guess (forbidden by the repository rules).
+- **Consequence:** the kernel probe must fill them; a zero means "not
+  measured". `deps/abi.sha256` records the v2 header. The C facade exposes the
+  new values, and `patches/mesa/0002` can now be written against a real
+  contract — it still must refuse to create a device when `mmu_features` is
+  zero.
+- **Date:** 2026-11-01.

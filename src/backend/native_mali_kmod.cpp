@@ -178,6 +178,16 @@ NativeMaliKmod *native_mali_kmod_create(const NativeMaliTransportCallbacks *tran
     props.va_start = info.va_start;
     props.va_size = info.va_size;
     props.max_bo_bytes = query.max_bo_bytes;
+    props.mem_features = info.mem_features;
+    props.mmu_features = info.mmu_features;
+    props.afbc_features = info.afbc_features;
+    for (uint32_t index = 0; index < 4; ++index)
+        props.texture_features[index] = info.texture_features[index];
+    props.max_tasks_per_core = info.max_tasks_per_core;
+    props.registers_per_core = info.registers_per_core;
+    props.tls_instances_per_core = info.tls_instances_per_core;
+    props.pgsize_shift = info.pgsize_shift;
+    props.vm_op_flags = info.vm_op_flags;
 
     *error = NATIVE_MALI_RESULT_OK;
     return sized;

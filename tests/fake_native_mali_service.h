@@ -201,6 +201,18 @@ private:
         reply->flags = NativeMaliDeviceNonCoherent;
         reply->va_start = 0;
         reply->va_size = UINT64_C(1) << 48;
+        reply->mem_features = 0x00000007;
+        reply->mmu_features = (40u << 8) | 48u;
+        reply->afbc_features = 0x0000000F;
+        reply->texture_features[0] = 0x11110000;
+        reply->texture_features[1] = 0x22220000;
+        reply->texture_features[2] = 0x33330000;
+        reply->texture_features[3] = 0x44440000;
+        reply->max_tasks_per_core = 2;
+        reply->registers_per_core = 96;
+        reply->tls_instances_per_core = 64;
+        reply->pgsize_shift = NativeMaliAbiPageShift;
+        reply->vm_op_flags = NativeMaliAbiVmOpMap | NativeMaliAbiVmOpUnmap;
         return kIOReturnSuccess;
     }
 

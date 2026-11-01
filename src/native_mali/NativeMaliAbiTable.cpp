@@ -16,7 +16,7 @@ constexpr uint32_t kBytes(size_t value) { return static_cast<uint32_t>(value); }
  * record changes size, this file fails to compile instead of sending a short
  * record across the boundary. */
 static_assert(sizeof(NativeMaliAbiQuery) == 24, "query record");
-static_assert(sizeof(NativeMaliAbiDeviceInfo) == 64, "device info record");
+static_assert(sizeof(NativeMaliAbiDeviceInfo) == 112, "device info record");
 static_assert(sizeof(NativeMaliAbiBoAlloc) == 8, "alloc record");
 static_assert(sizeof(NativeMaliAbiBoAllocReply) == 8, "alloc reply");
 static_assert(sizeof(NativeMaliAbiBoMap) == 24, "map record");

@@ -69,6 +69,18 @@ typedef struct NativeMaliDeviceProps {
     uint64_t va_start;
     uint64_t va_size;
     uint64_t max_bo_bytes;
+
+    /* v2: raw feature words a pan_kmod backend needs, plus the driver's
+     * capability constants. Zero means the kernel probe did not answer. */
+    uint32_t mem_features;
+    uint32_t mmu_features;
+    uint32_t afbc_features;
+    uint32_t texture_features[4];
+    uint32_t max_tasks_per_core;
+    uint32_t registers_per_core;
+    uint32_t tls_instances_per_core;
+    uint32_t pgsize_shift;
+    uint32_t vm_op_flags;
 } NativeMaliDeviceProps;
 
 /* Open the device. On success returns a device and sets *error to OK. On

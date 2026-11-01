@@ -77,6 +77,9 @@ struct FakeTransport final : NativeMaliTransport {
             reply->gpu_id = 0x70021000;
             reply->flags = NativeMaliDeviceNonCoherent;
             reply->va_size = UINT64_C(1) << 48;
+            reply->mmu_features = (40u << 8) | 48u;
+            reply->texture_features[2] = 0x33330000;
+            reply->pgsize_shift = NativeMaliAbiPageShift;
         } else if (sel == NativeMaliMethodGetStatus) {
             auto *reply = static_cast<NativeMaliAbiStatus *>(output);
             reply->faults = 3;
@@ -159,6 +162,9 @@ int main() {
            "GetDeviceInfo reply size");
     expect(info.gpu_id == 0x70021000, "device info copied");
     expect((info.flags & NativeMaliDeviceNonCoherent) != 0, "non-coherent flag visible");
+    expect(info.mmu_features == ((40u << 8) | 48u), "v2 MMU features copied");
+    expect(info.texture_features[2] == 0x33330000, "v2 texture features copied");
+    expect(info.pgsize_shift == NativeMaliAbiPageShift, "v2 page shift copied");
 
     /* A failed call maps the kernel code and leaves the output alone. */
     transport.result = kIOReturnBusy;
