@@ -111,7 +111,7 @@ speaks `NativeMaliABI.h`.
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
 | Metal object C ABI | imported byte-identical at the pinned AdrenoMetal revision; compiles as C11/C++17 |
 | Metal frontend | imported byte-identical (`src/frontend`); Objective-C++ syntax-checked on the host, runtime not built |
-| Metal plugin / device publish | blocked on PanVK |
+| Metal plugin / device publish | publish policy written and host-tested; the device and `MTLAddDevice` call wait on PanVK |
 | Metal self-test (compute, render, import) | blocked on device creation |
 | QuartzCore / system UI | blocked on the above and on display scanout |
 | Display scanout path | unknown for MT6768 under UniXNU |
@@ -208,6 +208,7 @@ between those two models. The options and the evidence are in
 ├── src/backend/               C surface the Mesa patch maps onto
 ├── src/bridge/                Metal object C ABI, imported from AdrenoMetal
 ├── src/frontend/              Metal API frontend, imported from AdrenoMetal
+├── src/plugin/                publish policy (marker + client allow-list)
 ├── src/transport/             IOKit glue: one external method call
 ├── tests/                     host tests; tests/run.sh runs them all
 ├── tools/deps.py              pin verifier: fails on a wrong checkout
