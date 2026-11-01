@@ -233,3 +233,27 @@ placeholder: `runtime_examples.air` 8384 bytes, `fc.air` 5512 bytes.
 
 Still open: the bridge's own host tests have not been run (they need a loader or
 the scripted device), and nothing here is runtime evidence.
+
+## 14. A userspace-signalable fence for Vulkan semaphores — open
+
+Vulkan requires `vkSignalSemaphore` and timeline semaphore values, i.e. a fence
+the host can signal and reset. The NativeMali ABI v2 has none: `Submit`
+produces a fence and `WaitFence` consumes it; there is no "signal this fence"
+or "create an event" method.
+
+Consequence: a native `vk_sync_type` can map **queue-signaled** binary
+semaphores (submit output), and must refuse `vkSignalSemaphore` and timeline
+semaphores. That is enough for a single-queue render pass, not enough for a
+compositor that synchronises across processes or with the display.
+
+Options, for `Mali-G52` to decide:
+
+1. add an ABI v3 method pair (create/destroy event + signal/wait) backed by a
+   driver-side counter, so userspace can signal without submitting;
+2. expose the job-slot fence as a signalable object (harder: fences are opaque
+   and tied to submitted work);
+3. document that only queue-signaled semaphores work and keep cross-process
+   synchronisation out of scope for the first UI frame.
+
+Until decided, `docs/MESA_INTEGRATION.md` records that 0006 is partial by
+design and the Mesa patch refuses what it cannot honour.

@@ -42,11 +42,36 @@ Limits the ICD must surface, not hide:
 - **Device-lost detection** comes from `GetStatus` via the facade; the queue
   reports `VK_ERROR_DEVICE_LOST` on submit/wait failure.
 
+## Why the device path and the sync type are one change
+
+Splitting "create a device without `/dev/dri`" (0005) from "a native `vk_sync`"
+(0006) does not work. `panvk_physical_device_init()` is not just enumeration:
+
+- `create_kmod_dev()` opens a render node and reads its DRM version;
+- `get_device_sync_types()` calls `vk_drm_syncobj_get_type(dev->fd)` and treats
+  a zero result as `VK_ERROR_INITIALIZATION_FAILED`. A native device has no
+  syncobj type, so it must supply a `vk_sync_type` here;
+- the memory budget is keyed by `device->drm.render_rdev` (`get_memory_budget`);
+- `panvk_wsi_init()` and `panvk_wsi_finish()` assume DRM display objects.
+
+So 0005 and 0006 have to land together as one "native physical device" patch
+that also skips the DRM memory budget and WSI. Two smaller consequences:
+
+- the instance-level hook itself is cheap: `vk_instance` already exposes
+  `instance->vk.physical_devices.enumerate`, so no Vulkan runtime change is
+  needed;
+- the native `vk_sync_type` can only support **queue-signaled** semaphores.
+  `vkSignalSemaphore` and timeline values need a userspace-signalable fence,
+  which the v1/v2 ABI does not have (`Submit` produces, `WaitFence` consumes).
+  That is an ABI v3 question for `Mali-G52`, recorded in `docs/OPEN_QUESTIONS.md`
+  here and in the kernel repository.
+
 ## Still DRM-shaped in Mesa
 
 | File | Why it matters |
 | --- | --- |
 | `vulkan/panvk_physical_device.c` | enumerates DRM render nodes with `drmGetDevices2`, opens one and `drmGetVersion`; needs a native enumeration path (patch 0005) |
+| `vulkan/panvk_physical_device.c` | `get_device_sync_types()` requires a DRM syncobj type; the memory budget is keyed by `render_rdev`; `panvk_wsi_init()` assumes DRM display | 
 | `vulkan/jm/panvk_vX_gpu_queue.c` | the DRM branch still creates syncobjs and fills `drm_panfrost_submit`; semaphores/events map onto them (patch 0006) |
 | `vulkan/panvk_event.*` | events are DRM syncobjs |
 | `lib/kmod/panfrost_kmod.c` | untouched by design: it remains the DRM backend |
