@@ -100,6 +100,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential meson ninja-build pkg-config \
             libdrm-dev python3-mako python3-yaml llvm llvm-dev libclang-dev clang
+          # Mesa's CLC path (pulled in by panfrost) wants the SPIRV-LLVM
+          # translator; the package name follows the LLVM version.
+          sudo apt-get install -y libllvmspirvlib-dev \
+            || sudo apt-get install -y libllvmspirvlib-22-dev \
+            || sudo apt-get install -y libllvmspirvlib-21-dev \
+            || sudo apt-get install -y libllvmspirvlib-20-dev
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
