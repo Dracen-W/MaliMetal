@@ -129,3 +129,58 @@ jobs:
 
       - name: Build the pan_kmod unit
         run: ninja -C mesa/build src/panfrost/lib/kmod/libpankmod_lib.a
+
+  # The Vulkan driver configuration, for patches that touch panvk (the JM
+  # queue, vk_sync). A panfrost Vulkan driver forces CLC -> LLVM + the SPIR-V
+  # translator, so this job builds the translator from source at the version
+  # that matches the runner's LLVM 22. It compiles upstream Mesa with our
+  # series applied; it runs nothing.
+  mesa-panvk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential meson ninja-build pkg-config \
+            libdrm-dev python3-mako python3-yaml llvm llvm-dev libclang-dev clang cmake
+
+      - name: Clone Mesa at the pinned tag
+        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: Build the SPIR-V LLVM translator
+        run: |
+          set -eu
+          llvm_root=$(llvm-config-22 --cmakedir)
+          git clone --depth 1 --branch v22.1.8 \
+            https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git spirv
+          cmake -S spirv -B spirv/build -G Ninja \
+            -DLLVM_DIR="$llvm_root" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/spirv-prefix" \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build spirv/build -j"$(nproc)"
+          cmake --install spirv/build
+
+      - name: Apply the patch series
+        run: |
+          set -eu
+          for patch in patches/mesa/*.patch; do
+            echo "applying $patch"
+            git -C mesa apply "../$patch"
+          done
+
+      - name: Configure the Vulkan driver
+        run: |
+          PKG_CONFIG_PATH="$PWD/spirv-prefix/lib/pkgconfig" \
+          meson setup mesa/build mesa \
+            -Dvulkan-drivers=panfrost \
+            -Dgallium-drivers= \
+            -Dglx=disabled -Degl=disabled -Dgbm=disabled \
+            -Dplatforms= \
+            -Dzstd=disabled \
+            -Dc_args=-I${{ github.workspace }}/src/backend
+
+      - name: Build panvk
+        run: ninja -C mesa/build src/panfrost/vulkan/libvulkan_panfrost.so
