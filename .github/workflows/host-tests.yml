@@ -119,7 +119,7 @@ jobs:
             -Dgallium-drivers= \
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
             -Dllvm=disabled -Dplatforms= \
-            -Dmesa-clc=disabled -Dmicrosoft-clc=disabled -Dprecomp-compiler=disabled \
+            -Dmicrosoft-clc=disabled -Dprecomp-compiler=disabled \
             -Dzstd=disabled
 
       - name: Build the pan_kmod unit
