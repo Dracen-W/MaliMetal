@@ -150,9 +150,7 @@ jobs:
           sudo apt-get install -y libclang-cpp-dev \
             || sudo apt-get install -y libclang-cpp18-dev \
             || true
-          # CLC also links SPIRV-Tools; Mesa looks for its pkg-config/CMake
-          # package before it will configure a Vulkan driver.
-          sudo apt-get install -y libspirv-tools-dev spirv-tools
+
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
@@ -171,6 +169,23 @@ jobs:
           cmake --build spirv/build -j"$(nproc)"
           cmake --install spirv/build
 
+      - name: Build SPIRV-Tools
+        run: |
+          set -eu
+          # Matching Vulkan SDK tags for the headers and the tools.
+          git clone --depth 1 --branch vulkan-sdk-1.4.363.0 \
+            https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+          git clone --depth 1 --branch vulkan-sdk-1.4.363.0 \
+            https://github.com/KhronosGroup/SPIRV-Tools.git spirv-tools
+          cmake -S spirv-tools -B spirv-tools/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSPIRV-Headers_SOURCE_DIR="$PWD/spirv-headers" \
+            -DSPIRV_SKIP_TESTS=ON -DSPIRV_WERROR=OFF \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX="$PWD/spirv-tools-prefix"
+          cmake --build spirv-tools/build -j"$(nproc)"
+          cmake --install spirv-tools/build
+
       - name: Apply the patch series
         run: |
           set -eu
@@ -181,8 +196,8 @@ jobs:
 
       - name: Configure the Vulkan driver
         run: |
-          PKG_CONFIG_PATH="$PWD/spirv-prefix/lib/pkgconfig" \
-          CMAKE_PREFIX_PATH="$PWD/spirv-prefix" \
+          PKG_CONFIG_PATH="$PWD/spirv-prefix/lib/pkgconfig:$PWD/spirv-tools-prefix/lib/pkgconfig:$PWD/spirv-tools-prefix/lib/x86_64-linux-gnu/pkgconfig" \
+          CMAKE_PREFIX_PATH="$PWD/spirv-prefix:$PWD/spirv-tools-prefix" \
           meson setup mesa/build mesa \
             -Dvulkan-drivers=panfrost \
             -Dgallium-drivers= \
