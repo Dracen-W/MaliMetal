@@ -150,6 +150,9 @@ jobs:
           sudo apt-get install -y libclang-cpp-dev \
             || sudo apt-get install -y libclang-cpp18-dev \
             || true
+          # CLC also links SPIRV-Tools; Mesa looks for its pkg-config/CMake
+          # package before it will configure a Vulkan driver.
+          sudo apt-get install -y libspirv-tools-dev spirv-tools
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
