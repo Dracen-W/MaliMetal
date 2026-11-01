@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # Mesa patch series
 
-Status: **plan only**. No patch has been written, applied or built. The base is
+Status: **patch 0001 exists and is compiled in CI**; it is a seam, not a
+driver. The rest of the plan below is unchanged. The base is
 Mesa tag `mesa-26.2.6`, commit `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`
 (`deps/deps.toml`, `docs/DEPENDENCIES.md`). Every line reference below was read
 from that commit; any other revision is a different port.
@@ -55,7 +56,8 @@ it is why this directory is still empty.
 
 | Patch | Content | Gate |
 | --- | --- | --- |
-| `0001-native-backend-skeleton` | build guard, `dev_create` over the C facade, props | compiles against 26.2.6; creates a device against the scripted service in a host harness |
+| `0001-native-device-creation` | **written** (`patches/mesa/0001-...`): `pan_kmod_dev_create_native()` with no DRM fd, so a backend can supply ops and props | `.github/workflows/host-tests.yml` clones 26.2.6, applies it and builds `libpankmod_lib.a` on Linux |
+| `0002-native-backend` | a backend over the C facade: `dev_create`, props, alloc/free/map | host harness against the scripted service |
 | `0002-bo-vm` | alloc/free/map over the facade | fake-service test |
 | `0003-bo-wait` | refuse unless a tracked fence proves completion | fake-service test |
 | `0004-device-creation` | physical-device path without `/dev/dri`, sync types | needs the submission patch |

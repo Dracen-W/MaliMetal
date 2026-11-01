@@ -86,3 +86,40 @@ jobs:
           METAL2VULKAN_DIR: ${{ github.workspace }}/.deps/metal2vulkan
           ADRENOMETAL_DIR: ${{ github.workspace }}/.deps/adrenometal
         run: tools/build-bridge-host.sh
+
+  # The Mesa seam, compiled rather than asserted: apply the patch series to the
+  # pinned Mesa and build the touched unit on Linux. This does not run any
+  # driver and does not prove GPU behaviour.
+  mesa-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential meson ninja-build pkg-config \
+            libdrm-dev python3-mako python3-yaml
+
+      - name: Clone Mesa at the pinned tag
+        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: Apply the patch series
+        run: |
+          set -eu
+          for patch in patches/mesa/*.patch; do
+            echo "applying $patch"
+            git -C mesa apply "../$patch"
+          done
+
+      - name: Configure
+        run: |
+          meson setup mesa/build mesa \
+            -Dvulkan-drivers=panfrost \
+            -Dgallium-drivers= \
+            -Dglx=disabled -Degl=disabled -Dgbm=disabled \
+            -Dllvm=disabled -Dplatforms= \
+            -Dzstd=disabled
+
+      - name: Build the pan_kmod unit
+        run: ninja -C mesa/build src/panfrost/lib/kmod/libpankmod_lib.a

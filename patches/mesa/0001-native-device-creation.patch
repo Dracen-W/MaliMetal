@@ -1,0 +1,61 @@
+# MaliMetal patch 0001: a pan_kmod device without a DRM fd.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d
+# (deps/deps.toml, and the file hashes in docs/DEPENDENCIES.md).
+#
+# Adds pan_kmod_dev_create_native(): the backend supplies ops and driver info,
+# no DRM node is opened, and fd is -1. It is the seam a NativeMali backend uses;
+# it does not implement any op, does not touch the DRM backends, and changes no
+# existing behaviour. Compiled by the mesa-patch CI job, never run on hardware.
+#
+# Keep Mesa's MIT headers; this note is not part of the patch's code.
+diff --git a/src/panfrost/lib/kmod/pan_kmod.c b/src/panfrost/lib/kmod/pan_kmod.c
+index eac10b2..9ca5299 100644
+--- a/src/panfrost/lib/kmod/pan_kmod.c
++++ b/src/panfrost/lib/kmod/pan_kmod.c
+@@ -81,6 +81,23 @@ pan_kmod_dev_create(int fd, uint32_t flags,
+    return dev;
+ }
+
++struct pan_kmod_dev *
++pan_kmod_dev_create_native(const struct pan_kmod_ops *ops, uint32_t flags,
++                           const struct pan_kmod_driver *drv_info,
++                           const struct pan_kmod_allocator *allocator)
++{
++   if (!ops || !ops->dev_create || !ops->dev_destroy)
++      return NULL;
++
++   if (!allocator)
++      allocator = &default_allocator;
++
++   /* No DRM fd exists for this backend. -1 is deliberate: a backend that
++    * ignores it cannot be confused with one that happens to have fd 0.
++    */
++   return ops->dev_create(-1, flags, drv_info, allocator);
++}
++
+ void
+ pan_kmod_dev_destroy(struct pan_kmod_dev *dev)
+ {
+diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
+index 8d37023..23916f6 100644
+--- a/src/panfrost/lib/kmod/pan_kmod.h
++++ b/src/panfrost/lib/kmod/pan_kmod.h
+@@ -631,6 +631,17 @@ struct pan_kmod_dev *
+ pan_kmod_dev_create(int fd, uint32_t flags,
+                     const struct pan_kmod_allocator *allocator);
+
++/* Create a device from a backend that has no DRM node and implements none of
++ * the DRM ioctls. The backend's dev_create fills struct pan_kmod_dev_props from
++ * its own kernel interface; fd is passed as -1 and must not be used. This is the
++ * seam a non-DRM kernel interface uses; it is not a replacement for the DRM
++ * backends and changes none of their behaviour.
++ */
++struct pan_kmod_dev *
++pan_kmod_dev_create_native(const struct pan_kmod_ops *ops, uint32_t flags,
++                           const struct pan_kmod_driver *drv_info,
++                           const struct pan_kmod_allocator *allocator);
++
+ void pan_kmod_dev_destroy(struct pan_kmod_dev *dev);
+
+ static inline struct pan_kmod_va_range
