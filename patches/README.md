@@ -56,7 +56,7 @@ it is why this directory is still empty.
 
 | Patch | Content | Gate |
 | --- | --- | --- |
-| `0001-native-device-creation` | **written** (`patches/mesa/0001-...`): `pan_kmod_dev_create_native()` with no DRM fd, so a backend can supply ops and props | `.github/workflows/host-tests.yml` clones 26.2.6, applies it and builds `libpankmod_lib.a` on Linux |
+| `0001-native-device-creation` | **written** (`patches/mesa/0001-...`): `pan_kmod_dev_create_native()` with no DRM fd, so a backend can supply ops and props | `.github/workflows/host-tests.yml` clones 26.2.6, applies it and builds `libpankmod_lib.a` with `-Dtools=panfrost` (the unit is identical; a driver configuration would also pull the CLC/LLVM chain, which this check does not need) |
 | `0002-native-backend` | a backend over the C facade: `dev_create`, props, alloc/free/map | host harness against the scripted service |
 | `0002-bo-vm` | alloc/free/map over the facade | fake-service test |
 | `0003-bo-wait` | refuse unless a tracked fence proves completion | fake-service test |

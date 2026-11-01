@@ -99,13 +99,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential meson ninja-build pkg-config \
-            libdrm-dev python3-mako python3-yaml llvm llvm-dev libclang-dev clang
-          # Mesa's CLC path (pulled in by panfrost) wants the SPIRV-LLVM
-          # translator; the package name follows the LLVM version.
-          sudo apt-get install -y libllvmspirvlib-dev \
-            || sudo apt-get install -y libllvmspirvlib-22-dev \
-            || sudo apt-get install -y libllvmspirvlib-21-dev \
-            || sudo apt-get install -y libllvmspirvlib-20-dev
+            libdrm-dev python3-mako python3-yaml
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
@@ -120,11 +114,15 @@ jobs:
 
       - name: Configure
         run: |
+          # tools=panfrost pulls in src/panfrost without selecting a driver.
+          # A panfrost driver pulls CLC, which pulls LLVM and the SPIR-V
+          # translator; the kmod unit does not need any of that.
           meson setup mesa/build mesa \
-            -Dvulkan-drivers=panfrost \
+            -Dvulkan-drivers= \
             -Dgallium-drivers= \
+            -Dtools=panfrost \
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
-            -Dplatforms= \
+            -Dllvm=disabled -Dplatforms= \
             -Dmicrosoft-clc=disabled \
             -Dzstd=disabled
 
