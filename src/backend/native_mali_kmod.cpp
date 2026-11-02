@@ -17,6 +17,11 @@
 
 #include <new>
 
+#if defined(__APPLE__)
+#include <IOKit/IOKitLib.h>
+#include <mach/mach.h>
+#endif
+
 namespace {
 
 /* The C enum mirrors the C++ one exactly; if either is edited alone this fails
@@ -65,15 +70,33 @@ private:
     NativeMaliTransportCallbacks callbacks_;
 };
 
+#if defined(__APPLE__)
+int IokitTransportCall(void *context, uint32_t selector, const void *input,
+                       size_t input_bytes, void *output, size_t output_bytes) {
+    io_connect_t connection = static_cast<io_connect_t>(reinterpret_cast<uintptr_t>(context));
+    size_t size = output_bytes;
+    return IOConnectCallStructMethod(connection, selector, input, input_bytes,
+                                     output, &size);
+}
+#endif
+
 } /* namespace */
 
 struct NativeMaliKmod {
     NativeMaliKmod(const NativeMaliTransportCallbacks &callbacks, uint64_t va_base,
-                   uint64_t va_size)
+                   uint64_t va_size, uint32_t connection = 0)
         : transport(callbacks),
           client(transport),
           iova(va_base, va_size),
-          device(client, buffers, iova, fences) {}
+          device(client, buffers, iova, fences),
+          connection(connection) {}
+
+    ~NativeMaliKmod() {
+#if defined(__APPLE__)
+        if (connection != 0)
+            IOServiceClose(static_cast<io_connect_t>(connection));
+#endif
+    }
 
     CallbackTransport transport;
     NativeMaliClient client;
@@ -82,6 +105,7 @@ struct NativeMaliKmod {
     NativeMaliFenceTracker fences;
     NativeMaliDevice device;
     NativeMaliDeviceProps props{};
+    uint32_t connection = 0;
 };
 
 const char *native_mali_kmod_error_name(NativeMaliResult result) {
@@ -193,6 +217,48 @@ NativeMaliKmod *native_mali_kmod_create(const NativeMaliTransportCallbacks *tran
     return sized;
 }
 
+#if defined(__APPLE__)
+NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
+    NativeMaliResult ignored = NATIVE_MALI_RESULT_OK;
+    if (error == nullptr)
+        error = &ignored;
+    *error = NATIVE_MALI_RESULT_UNSUPPORTED;
+
+    io_service_t service = IOServiceGetMatchingService(
+        kIOMainPortDefault, IOServiceMatching("NativeMaliGpuService"));
+    if (service == IO_OBJECT_NULL)
+        return nullptr;
+
+    io_connect_t connection = IO_OBJECT_NULL;
+    const kern_return_t opened = IOServiceOpen(
+        service, mach_task_self(), 0, &connection);
+    IOObjectRelease(service);
+    if (opened != KERN_SUCCESS || connection == IO_OBJECT_NULL) {
+        if (connection != IO_OBJECT_NULL)
+            IOServiceClose(connection);
+        return nullptr;
+    }
+
+    const NativeMaliTransportCallbacks callbacks = {
+        .call = IokitTransportCall,
+        .context = reinterpret_cast<void *>(static_cast<uintptr_t>(connection)),
+    };
+    NativeMaliKmod *kmod = native_mali_kmod_create(&callbacks, error);
+    if (kmod == nullptr) {
+        IOServiceClose(connection);
+        return nullptr;
+    }
+    kmod->connection = static_cast<uint32_t>(connection);
+    return kmod;
+}
+#else
+NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
+    if (error != nullptr)
+        *error = NATIVE_MALI_RESULT_UNSUPPORTED;
+    return nullptr;
+}
+#endif
+
 void native_mali_kmod_destroy(NativeMaliKmod *kmod) { delete kmod; }
 
 const NativeMaliDeviceProps *native_mali_kmod_props(const NativeMaliKmod *kmod) {
@@ -237,6 +303,57 @@ NativeMaliResult native_mali_kmod_cpu_unmap(NativeMaliKmod *kmod, uint64_t handl
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
     return to_result(kmod->device.cpu_unmap(handle, token));
+}
+
+NativeMaliResult native_mali_kmod_cpu_map_address(NativeMaliKmod *kmod, uint64_t handle,
+                                                  uint32_t *token, void **address,
+                                                  uint64_t *bytes) {
+    if (kmod == nullptr || token == nullptr || address == nullptr || bytes == nullptr)
+        return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+#if defined(__APPLE__)
+    if (kmod->connection == 0)
+        return NATIVE_MALI_RESULT_UNSUPPORTED;
+    uint32_t local_token = 0;
+    uint64_t local_bytes = 0;
+    const NativeMaliResult result = to_result(
+        kmod->device.cpu_map(handle, &local_token, &local_bytes));
+    if (result != NATIVE_MALI_RESULT_OK)
+        return result;
+
+    mach_vm_address_t mapped = 0;
+    mach_vm_size_t mapped_bytes = 0;
+    const kern_return_t kr = IOConnectMapMemory64(
+        static_cast<io_connect_t>(kmod->connection), local_token, mach_task_self(),
+        &mapped, &mapped_bytes, kIOMapAnywhere | kIOMapDefaultCache);
+    if (kr != KERN_SUCCESS) {
+        (void)kmod->device.cpu_unmap(handle, local_token);
+        return NATIVE_MALI_RESULT_IO_ERROR;
+    }
+    *token = local_token;
+    *address = reinterpret_cast<void *>(static_cast<uintptr_t>(mapped));
+    *bytes = static_cast<uint64_t>(mapped_bytes);
+    return NATIVE_MALI_RESULT_OK;
+#else
+    (void)handle; (void)token; (void)address; (void)bytes;
+    return NATIVE_MALI_RESULT_UNSUPPORTED;
+#endif
+}
+
+NativeMaliResult native_mali_kmod_cpu_address_unmap(NativeMaliKmod *kmod, uint32_t token,
+                                                    void *address) {
+    if (kmod == nullptr || token == 0 || address == nullptr)
+        return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+#if defined(__APPLE__)
+    if (kmod->connection == 0)
+        return NATIVE_MALI_RESULT_UNSUPPORTED;
+    const kern_return_t kr = IOConnectUnmapMemory64(
+        static_cast<io_connect_t>(kmod->connection), token, mach_task_self(),
+        static_cast<mach_vm_address_t>(reinterpret_cast<uintptr_t>(address)));
+    return kr == KERN_SUCCESS ? NATIVE_MALI_RESULT_OK : NATIVE_MALI_RESULT_IO_ERROR;
+#else
+    (void)token; (void)address;
+    return NATIVE_MALI_RESULT_UNSUPPORTED;
+#endif
 }
 
 NativeMaliResult native_mali_kmod_submit(NativeMaliKmod *kmod, uint64_t chain,

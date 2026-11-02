@@ -29,6 +29,18 @@
 extern "C" {
 #endif
 
+/* Mesa compiles the pan_kmod backend without linking MaliMetal's C++ facade;
+ * it defines MALIMETAL_KMOD_WEAK so a link-time check can still produce the
+ * driver and a missing facade fails at runtime instead of at link time. The
+ * real device build defines the strong symbols in this file. */
+#ifndef MALIMETAL_KMOD_LINKAGE
+#if (defined(MALIMETAL_KMOD_WEAK) || defined(PACKAGE_VERSION)) && defined(__GNUC__)
+#define MALIMETAL_KMOD_LINKAGE __attribute__((weak))
+#else
+#define MALIMETAL_KMOD_LINKAGE
+#endif
+#endif
+
 typedef struct NativeMaliKmod NativeMaliKmod;
 
 /* Same values as NativeMaliBoRead/Write in the kernel ABI, restated so a
@@ -98,39 +110,53 @@ typedef struct NativeMaliDeviceProps {
  * The IOVA allocator starts at the first page-aligned, nonzero address at or
  * above props.va_start, because the ABI refuses IOVA 0. */
 NativeMaliKmod *native_mali_kmod_create(const NativeMaliTransportCallbacks *transport,
-                                        NativeMaliResult *error);
+                                        NativeMaliResult *error) MALIMETAL_KMOD_LINKAGE;
 
-void native_mali_kmod_destroy(NativeMaliKmod *kmod);
+/* The phone path: open the NativeMaliGpuService IOKit service and use its
+ * IOConnect transport. Returns NULL with UNSUPPORTED on a host without the
+ * service, and never guesses a transport. */
+NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) MALIMETAL_KMOD_LINKAGE;
+
+void native_mali_kmod_destroy(NativeMaliKmod *kmod) MALIMETAL_KMOD_LINKAGE;
 
 /* Valid until destroy. Never NULL for a live device. */
-const NativeMaliDeviceProps *native_mali_kmod_props(const NativeMaliKmod *kmod);
+const NativeMaliDeviceProps *native_mali_kmod_props(const NativeMaliKmod *kmod) MALIMETAL_KMOD_LINKAGE;
 
-const char *native_mali_kmod_error_name(NativeMaliResult result);
+const char *native_mali_kmod_error_name(NativeMaliResult result) MALIMETAL_KMOD_LINKAGE;
 
 /* Buffers. `bytes` must be a nonzero multiple of 4096 and at most
  * props->max_bo_bytes. */
-NativeMaliResult native_mali_kmod_alloc(NativeMaliKmod *kmod, uint64_t bytes, uint64_t *handle);
+NativeMaliResult native_mali_kmod_alloc(NativeMaliKmod *kmod, uint64_t bytes, uint64_t *handle) MALIMETAL_KMOD_LINKAGE;
 NativeMaliResult native_mali_kmod_map(NativeMaliKmod *kmod, uint64_t handle, uint32_t permissions,
-                                      uint64_t *iova);
+                                      uint64_t *iova) MALIMETAL_KMOD_LINKAGE;
 /* `guard_fence` is 0 when no submitted job can still reference the buffer. */
 NativeMaliResult native_mali_kmod_free(NativeMaliKmod *kmod, uint64_t handle,
-                                       uint64_t guard_fence);
+                                       uint64_t guard_fence) MALIMETAL_KMOD_LINKAGE;
 NativeMaliResult native_mali_kmod_cpu_map(NativeMaliKmod *kmod, uint64_t handle, uint32_t *token,
-                                          uint64_t *bytes);
+                                          uint64_t *bytes) MALIMETAL_KMOD_LINKAGE;
+/* The same call, plus the userspace address IOKit maps for the token. Only the
+ * default IOKit transport can provide an address; the callback transport
+ * returns UNSUPPORTED. The returned address is unmapped with
+ * native_mali_kmod_cpu_address_unmap(), not os_munmap(). */
+NativeMaliResult native_mali_kmod_cpu_map_address(NativeMaliKmod *kmod, uint64_t handle,
+                                                  uint32_t *token, void **address,
+                                                  uint64_t *bytes) MALIMETAL_KMOD_LINKAGE;
 NativeMaliResult native_mali_kmod_cpu_unmap(NativeMaliKmod *kmod, uint64_t handle,
-                                            uint32_t token);
+                                            uint32_t token) MALIMETAL_KMOD_LINKAGE;
+NativeMaliResult native_mali_kmod_cpu_address_unmap(NativeMaliKmod *kmod, uint32_t token,
+                                                    void *address) MALIMETAL_KMOD_LINKAGE;
 
 /* `chain` is a GPU address in a buffer this device mapped, 64-byte aligned. */
 NativeMaliResult native_mali_kmod_submit(NativeMaliKmod *kmod, uint64_t chain,
                                          uint64_t wait_fence, uint64_t wait_timeout_ns,
-                                         uint64_t *fence);
+                                         uint64_t *fence) MALIMETAL_KMOD_LINKAGE;
 NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
-                                       uint64_t timeout_ns);
+                                       uint64_t timeout_ns) MALIMETAL_KMOD_LINKAGE;
 
 /* Compare GetStatus with the previous reading. A change loses pending fences and
  * reports DEVICE_LOST until reset() succeeds. The first call is a baseline. */
-NativeMaliResult native_mali_kmod_refresh_status(NativeMaliKmod *kmod);
-NativeMaliResult native_mali_kmod_reset(NativeMaliKmod *kmod);
+NativeMaliResult native_mali_kmod_refresh_status(NativeMaliKmod *kmod) MALIMETAL_KMOD_LINKAGE;
+NativeMaliResult native_mali_kmod_reset(NativeMaliKmod *kmod) MALIMETAL_KMOD_LINKAGE;
 
 #ifdef __cplusplus
 } /* extern "C" */

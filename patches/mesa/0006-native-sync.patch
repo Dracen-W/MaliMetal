@@ -1,0 +1,302 @@
+# MaliMetal patch 0006: a binary vk_sync backed by an opaque NativeMali fence.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0004 (the native queue).
+#
+# Adds vk_sync_type with BINARY/GPU_WAIT/CPU_WAIT/CPU_RESET and no invented
+# userspace signal, import/export or timeline. The native queue consumes one
+# wait fence and attaches the last submitted fence to signal semaphores; more
+# than one wait is refused because NativeMali Submit has exactly one dependency
+# field. Events remain a documented gap.
+#
+# Compiled by the mesa-panvk CI job. It has not been run on hardware.
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index 4702778..1e4d440 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -23,6 +23,7 @@
+ #include "panvk_physical_device.h"
+ #include "panvk_priv_bo.h"
+ #include "panvk_queue.h"
++#include "panvk_native_sync.h"
+ 
+ #include "vk_drm_syncobj.h"
+ #include "vk_framebuffer.h"
+@@ -230,7 +231,8 @@ panvk_signal_event_syncobjs(struct panvk_gpu_queue *queue,
+ 
+ static VkResult
+ panvk_queue_submit_batch_native(struct panvk_gpu_queue *queue,
+-                                struct panvk_batch *batch)
++                                struct panvk_batch *batch,
++                                uint64_t external_wait)
+ {
+    struct panvk_device *dev = to_panvk_device(queue->vk.base.device);
+    const struct pan_kmod_ops *ops = dev->kmod.dev->ops;
+@@ -243,7 +245,10 @@ panvk_queue_submit_batch_native(struct panvk_gpu_queue *queue,
+       return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
+ 
+    if (batch->vtc_jc.first_job) {
+-      struct pan_kmod_submit vtc = {.job_chain = batch->vtc_jc.first_job};
++      struct pan_kmod_submit vtc = {
++         .job_chain = batch->vtc_jc.first_job,
++         .wait_fence = external_wait,
++      };
+       if (ops->submit(dev->kmod.dev, &vtc, &fence))
+          return panvk_error(dev, VK_ERROR_DEVICE_LOST);
+       queue->last_fence = fence;
+@@ -252,7 +257,8 @@ panvk_queue_submit_batch_native(struct panvk_gpu_queue *queue,
+    if (batch->frag_jc.first_job) {
+       struct pan_kmod_submit frag = {
+          .job_chain = batch->frag_jc.first_job,
+-         .wait_fence = batch->vtc_jc.first_job ? queue->last_fence : 0,
++         .wait_fence = batch->vtc_jc.first_job ? queue->last_fence
++                                               : external_wait,
+       };
+       if (ops->submit(dev->kmod.dev, &frag, &fence))
+          return panvk_error(dev, VK_ERROR_DEVICE_LOST);
+@@ -270,22 +276,43 @@ panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
+       container_of(vk_queue, struct panvk_gpu_queue, vk);
+    struct panvk_device *dev = to_panvk_device(queue->vk.base.device);
+ 
+-   /* Binary semaphores are DRM syncobjs in this backend. Until a native
+-    * vk_sync type exists, a submit that waits or signals one is refused. */
+-   if (submit->wait_count != 0 || submit->signal_count != 0)
++   /* NativeMali has one wait fence per submit and one out fence per job. A
++    * multi-wait submit is a real ABI gap, not something to emulate by waiting
++    * on the CPU. */
++   if (submit->wait_count > 1)
+       return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
+ 
++   uint64_t external_wait = 0;
++   uint64_t submitted_fence = 0;
++   if (submit->wait_count == 1) {
++      if (!panvk_sync_type_is_native_mali(submit->waits[0].sync->type))
++         return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
++      external_wait = panvk_native_sync_get_fence(submit->waits[0].sync);
++   }
++
+    for (uint32_t j = 0; j < submit->command_buffer_count; ++j) {
+       struct panvk_cmd_buffer *cmdbuf =
+          container_of(submit->command_buffers[j], struct panvk_cmd_buffer, vk);
+ 
+       list_for_each_entry(struct panvk_batch, batch, &cmdbuf->batches, node) {
+-         VkResult result = panvk_queue_submit_batch_native(queue, batch);
++         VkResult result = panvk_queue_submit_batch_native(
++            queue, batch, external_wait);
+          if (result != VK_SUCCESS)
+             return result;
++         external_wait = 0;
++         submitted_fence = queue->last_fence;
+       }
+    }
+ 
++   if (submit->signal_count != 0 && submitted_fence == 0)
++      return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
++
++   for (uint32_t i = 0; i < submit->signal_count; ++i) {
++      if (!panvk_sync_type_is_native_mali(submit->signals[i].sync->type))
++         return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
++      panvk_native_sync_set_fence(submit->signals[i].sync, submitted_fence);
++   }
++
+    return VK_SUCCESS;
+ }
+ 
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+index 9885d52..ec2b5d8 100644
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -56,6 +56,7 @@ libpanvk_files = files(
+   'panvk_host_copy.c',
+   'panvk_image.c',
+   'panvk_instance.c',
++  'panvk_native_sync.c',
+   'panvk_mempool.c',
+   'panvk_nir_lower_tile_image.c',
+   'panvk_physical_device.c',
+diff --git a/src/panfrost/vulkan/panvk_native_sync.c b/src/panfrost/vulkan/panvk_native_sync.c
+new file mode 100644
+index 0000000..21bb9da
+--- /dev/null
++++ b/src/panfrost/vulkan/panvk_native_sync.c
+@@ -0,0 +1,145 @@
++/*
++ * Copyright © 2026 MaliMetal contributors
++ * SPDX-License-Identifier: MIT
++ *
++ * NativeMali fence-backed binary vk_sync. The fence is an opaque value from
++ * NativeMali Submit; waiting is the only operation the ABI can honestly offer.
++ */
++#include "panvk_native_sync.h"
++
++#include <limits.h>
++
++#include "util/os_time.h"
++#include "vk_log.h"
++#include "panvk_device.h"
++
++struct panvk_native_sync {
++   struct vk_sync sync;
++   uint64_t fence;
++   bool signaled;
++};
++
++static struct panvk_native_sync *
++to_native_sync(struct vk_sync *sync)
++{
++   assert(sync->type == panvk_native_sync_get_type());
++   return container_of(sync, struct panvk_native_sync, sync);
++}
++
++static VkResult
++panvk_native_sync_init(struct vk_device *device, struct vk_sync *sync,
++                       uint64_t initial_value)
++{
++   struct panvk_native_sync *native = to_native_sync(sync);
++   native->fence = 0;
++   native->signaled = initial_value != 0;
++   return VK_SUCCESS;
++}
++
++static void
++panvk_native_sync_finish(struct vk_device *device, struct vk_sync *sync)
++{
++   (void)device;
++   (void)sync;
++}
++
++static VkResult
++panvk_native_sync_reset(struct vk_device *device, struct vk_sync *sync)
++{
++   (void)device;
++   struct panvk_native_sync *native = to_native_sync(sync);
++   native->fence = 0;
++   native->signaled = false;
++   return VK_SUCCESS;
++}
++
++static VkResult
++panvk_native_sync_wait(struct vk_device *device, struct vk_sync *sync,
++                       uint64_t wait_value, enum vk_sync_wait_flags wait_flags,
++                       uint64_t abs_timeout_ns)
++{
++   (void)wait_value;
++   struct panvk_native_sync *native = to_native_sync(sync);
++
++   if (wait_flags & VK_SYNC_WAIT_PENDING)
++      return VK_ERROR_FEATURE_NOT_PRESENT;
++
++   if (native->fence == 0)
++      return native->signaled ? VK_SUCCESS : VK_TIMEOUT;
++
++   struct panvk_device *dev = container_of(device, struct panvk_device, vk);
++   if (dev->kmod.dev->ops->wait_fence == NULL)
++      return VK_ERROR_FEATURE_NOT_PRESENT;
++
++   uint64_t timeout_ns = UINT64_MAX;
++   if (abs_timeout_ns != OS_TIMEOUT_INFINITE) {
++      const uint64_t now = os_time_get_nano();
++      timeout_ns = abs_timeout_ns > now ? abs_timeout_ns - now : 0;
++   }
++
++   const int ret = dev->kmod.dev->ops->wait_fence(dev->kmod.dev, native->fence,
++                                                   timeout_ns);
++   if (ret)
++      return VK_TIMEOUT;
++
++   /* A successful wait consumes a binary semaphore. */
++   native->fence = 0;
++   native->signaled = false;
++   return VK_SUCCESS;
++}
++
++static VkResult
++panvk_native_sync_wait_many(struct vk_device *device, uint32_t wait_count,
++                            const struct vk_sync_wait *waits,
++                            enum vk_sync_wait_flags wait_flags,
++                            uint64_t abs_timeout_ns)
++{
++   if (wait_count == 0)
++      return VK_SUCCESS;
++
++   VkResult result = VK_SUCCESS;
++   for (uint32_t i = 0; i < wait_count; i++) {
++      const VkResult one = panvk_native_sync_wait(
++         device, waits[i].sync, waits[i].wait_value, wait_flags,
++         abs_timeout_ns);
++      if ((wait_flags & VK_SYNC_WAIT_ANY) && one == VK_SUCCESS)
++         return VK_SUCCESS;
++      if (one != VK_SUCCESS)
++         result = one;
++   }
++   return result;
++}
++
++static const struct vk_sync_type native_sync_type = {
++   .size = sizeof(struct panvk_native_sync),
++   .features = VK_SYNC_FEATURE_BINARY | VK_SYNC_FEATURE_GPU_WAIT |
++               VK_SYNC_FEATURE_CPU_WAIT | VK_SYNC_FEATURE_CPU_RESET |
++               VK_SYNC_FEATURE_WAIT_ANY,
++   .init = panvk_native_sync_init,
++   .finish = panvk_native_sync_finish,
++   .reset = panvk_native_sync_reset,
++   .wait = panvk_native_sync_wait,
++   .wait_many = panvk_native_sync_wait_many,
++};
++
++const struct vk_sync_type *
++panvk_native_sync_get_type(void)
++{
++   return &native_sync_type;
++}
++
++void
++panvk_native_sync_set_fence(struct vk_sync *sync, uint64_t fence)
++{
++   struct panvk_native_sync *native = to_native_sync(sync);
++   native->fence = fence;
++   native->signaled = fence == 0;
++}
++
++uint64_t
++panvk_native_sync_get_fence(const struct vk_sync *sync)
++{
++   const struct panvk_native_sync *native =
++      container_of(sync, struct panvk_native_sync, sync);
++   return native->fence;
++}
+diff --git a/src/panfrost/vulkan/panvk_native_sync.h b/src/panfrost/vulkan/panvk_native_sync.h
+new file mode 100644
+index 0000000..8f5d598
+--- /dev/null
++++ b/src/panfrost/vulkan/panvk_native_sync.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright © 2026 MaliMetal contributors
++ * SPDX-License-Identifier: MIT
++ *
++ * A binary vk_sync whose payload is one opaque NativeMali fence. It is not a
++ * DRM syncobj and does not pretend to be one: no import/export, no timeline,
++ * and no invented userspace signal.
++ */
++#ifndef PANVK_NATIVE_SYNC_H
++#define PANVK_NATIVE_SYNC_H
++
++#include "vk_sync.h"
++
++const struct vk_sync_type *panvk_native_sync_get_type(void);
++
++/* Attach the fence produced by the last submit. The sync owns the opaque
++ * handle; a later vk_sync_reset() drops it. */
++void panvk_native_sync_set_fence(struct vk_sync *sync, uint64_t fence);
++
++/* Return the attached fence, or 0 when the sync has no payload. */
++uint64_t panvk_native_sync_get_fence(const struct vk_sync *sync);
++
++static inline bool
++panvk_sync_type_is_native_mali(const struct vk_sync_type *type)
++{
++   return type == panvk_native_sync_get_type();
++}
++
++#endif

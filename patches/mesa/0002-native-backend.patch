@@ -1,19 +1,3 @@
-# MaliMetal patch 0002: a pan_kmod backend over the NativeMali C facade.
-#
-# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d
-# (deps/deps.toml). API v2 in deps/abi.sha256 supplies the feature words.
-#
-# Adds src/panfrost/lib/kmod/pan_kmod_native_mali.{c,h}: a skeleton backend.
-# It refuses to create a device while the probe has not described it
-# (mmu_features == 0), and returns failure for everything the ABI cannot
-# honestly provide: mmap offsets, per-BO waits, VM unmap, import/export and
-# perf counters. No register is touched from userspace.
-#
-# The module needs MaliMetal's native_mali_kmod.h on the include path; the CI
-# job passes -Dc_args=-I<MaliMetal>/src/backend.
-#
-# Compiled by the mesa-patch CI job only. It is not run on hardware and does
-# not make PanVK work on Mali.
 diff --git a/src/panfrost/lib/kmod/meson.build b/src/panfrost/lib/kmod/meson.build
 index cb021a3..7798b19 100644
 --- a/src/panfrost/lib/kmod/meson.build
@@ -24,14 +8,43 @@ index cb021a3..7798b19 100644
    'panthor_kmod.c',
 +  'pan_kmod_native_mali.c',
  )
-
+ 
  libpankmod_lib = static_library(
+diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
+index 23916f6..3e84999 100644
+--- a/src/panfrost/lib/kmod/pan_kmod.h
++++ b/src/panfrost/lib/kmod/pan_kmod.h
+@@ -493,6 +493,12 @@ struct pan_kmod_ops {
+    /* Get the file offset to use to mmap() a buffer object. */
+    off_t (*bo_get_mmap_offset)(struct pan_kmod_bo *bo);
+ 
++   /* Map a BO without a DRM fd/offset. Optional; when set,
++    * pan_kmod_bo_mmap() uses it instead of bo_get_mmap_offset()+mmap().
++    * `host_addr` must be NULL. Return MAP_FAILED on failure. */
++   void *(*bo_cpu_map)(struct pan_kmod_bo *bo, int prot, int flags,
++                       void *host_addr);
++
+    /* Flush the pending BO map syncs. */
+    int (*flush_bo_map_syncs)(struct pan_kmod_dev *dev);
+ 
+@@ -768,6 +774,11 @@ pan_kmod_bo_mmap(struct pan_kmod_bo *bo, int prot, int flags, void *host_addr)
+    if (bo->flags & PAN_KMOD_BO_FLAG_NO_MMAP)
+       return MAP_FAILED;
+ 
++   /* A backend without a DRM offset may still be able to map the BO through
++    * its own kernel interface. It is not a made-up mmap offset. */
++   if (bo->dev->ops->bo_cpu_map)
++      return bo->dev->ops->bo_cpu_map(bo, prot, flags, host_addr);
++
+    mmap_offset = bo->dev->ops->bo_get_mmap_offset(bo);
+    if (mmap_offset < 0)
+       return MAP_FAILED;
 diff --git a/src/panfrost/lib/kmod/pan_kmod_native_mali.c b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
 new file mode 100644
-index 0000000..9c58bf8
+index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,398 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -68,6 +81,7 @@ index 0000000..9c58bf8
 +   /* The ABI handle is 64-bit; pan_kmod_bo.handle is 32-bit and is used as a
 +    * sparse-array index. Keep the real handle here rather than truncating. */
 +   uint64_t handle;
++   uint32_t cpu_token;
 +};
 +
 +static struct native_mali_dev *
@@ -99,8 +113,7 @@ index 0000000..9c58bf8
 +native_mali_bo_alloc(struct pan_kmod_dev *dev, struct pan_kmod_vm *exclusive_vm,
 +                     uint64_t size, uint32_t flags)
 +{
-+   const uint32_t unsupported = PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT |
-+                                PAN_KMOD_BO_FLAG_WB_MMAP |
++   const uint32_t unsupported = PAN_KMOD_BO_FLAG_WB_MMAP |
 +                                PAN_KMOD_BO_FLAG_IMPORTED |
 +                                PAN_KMOD_BO_FLAG_EXPORTED;
 +
@@ -131,6 +144,11 @@ index 0000000..9c58bf8
 +   struct native_mali_bo *nbo = to_native_bo(bo);
 +   struct NativeMaliKmod *kmod = to_native_dev(bo->dev)->kmod;
 +
++   if (nbo->cpu_token != 0) {
++      (void)native_mali_kmod_cpu_unmap(kmod, nbo->handle, nbo->cpu_token);
++      nbo->cpu_token = 0;
++   }
++
 +   /* The facade has no "unmap now" call; freeing the BO drops its mapping.
 +    * A guard fence of 0 is safe here only because panfrost releases a BO after
 +    * the jobs referencing it completed (refcount). */
@@ -156,6 +174,30 @@ index 0000000..9c58bf8
 +{
 +   (void)bo;
 +   return (off_t)-1;
++}
++
++static void *
++native_mali_bo_cpu_map(struct pan_kmod_bo *bo, int prot, int flags,
++                       void *host_addr)
++{
++   struct native_mali_bo *nbo = to_native_bo(bo);
++   struct NativeMaliKmod *kmod = to_native_dev(bo->dev)->kmod;
++
++   (void)prot;
++   (void)flags;
++   if (host_addr != NULL || nbo->cpu_token != 0)
++      return MAP_FAILED;
++
++   uint32_t token = 0;
++   uint64_t bytes = 0;
++   void *address = NULL;
++   const NativeMaliResult result = native_mali_kmod_cpu_map_address(
++      kmod, nbo->handle, &token, &address, &bytes);
++   if (result != NATIVE_MALI_RESULT_OK || address == NULL || bytes < bo->size)
++      return MAP_FAILED;
++
++   nbo->cpu_token = token;
++   return address;
 +}
 +
 +static struct pan_kmod_vm *
@@ -328,6 +370,7 @@ index 0000000..9c58bf8
 +   .bo_import = native_mali_bo_import,
 +   .bo_export = native_mali_bo_export,
 +   .bo_get_mmap_offset = native_mali_bo_get_mmap_offset,
++   .bo_cpu_map = native_mali_bo_cpu_map,
 +   .flush_bo_map_syncs = native_mali_flush_bo_map_syncs,
 +   .bo_wait = native_mali_bo_wait,
 +   .bo_make_evictable = native_mali_bo_make_evictable,
