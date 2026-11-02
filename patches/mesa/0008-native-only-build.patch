@@ -447,12 +447,22 @@ index 6978027..8eaa3a7 100644
  
     result = panvk_precomp_init(device);
 diff --git a/src/panfrost/vulkan/panvk_wsi.c b/src/panfrost/vulkan/panvk_wsi.c
-index 1b4acc0..ea768fe 100644
+index 1b4acc0..2072f9d 100644
 --- a/src/panfrost/vulkan/panvk_wsi.c
 +++ b/src/panfrost/vulkan/panvk_wsi.c
-@@ -40,6 +40,20 @@ panvk_can_present_on_device(VkPhysicalDevice pdevice, int fd)
+@@ -25,6 +25,7 @@ panvk_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
+    return vk_instance_get_proc_addr_unchecked(&instance->vk, pName);
+ }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ static bool
+ panvk_can_present_on_device(VkPhysicalDevice pdevice, int fd)
+ {
+@@ -39,7 +40,22 @@ panvk_can_present_on_device(VkPhysicalDevice pdevice, int fd)
+ 
     return match;
  }
++#endif
  
 +#ifdef PAN_KMOD_NATIVE_ONLY
 +VkResult
@@ -471,7 +481,7 @@ index 1b4acc0..ea768fe 100644
  VkResult
  panvk_wsi_init(struct panvk_physical_device *physical_device)
  {
-@@ -73,3 +87,4 @@ panvk_wsi_finish(struct panvk_physical_device *physical_device)
+@@ -73,3 +89,4 @@ panvk_wsi_finish(struct panvk_physical_device *physical_device)
     physical_device->vk.wsi_device = NULL;
     wsi_device_finish(&physical_device->wsi_device, &instance->vk.alloc);
  }

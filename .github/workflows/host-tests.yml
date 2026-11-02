@@ -223,3 +223,11 @@ jobs:
             -Dpanfrost-native-only=true \
             -Dc_args=-I${{ github.workspace }}/src/backend
           ninja -C mesa/build-native src/panfrost/vulkan/libvulkan_panfrost.so
+
+      - name: Upload native-only PanVK
+        uses: actions/upload-artifact@v4
+        with:
+          name: panvk-native-linux
+          path: mesa/build-native/src/panfrost/vulkan/libvulkan_panfrost.so
+          if-no-files-found: error
+          retention-days: 7
