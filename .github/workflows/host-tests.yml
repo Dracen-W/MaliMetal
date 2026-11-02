@@ -208,3 +208,18 @@ jobs:
 
       - name: Build panvk
         run: ninja -C mesa/build src/panfrost/vulkan/libvulkan_panfrost.so
+
+      - name: Build native-only PanVK
+        run: |
+          PKG_CONFIG_PATH="$PWD/spirv-prefix/lib/pkgconfig:$PWD/spirv-tools-prefix/lib/pkgconfig:$PWD/spirv-tools-prefix/lib/x86_64-linux-gnu/pkgconfig" \
+          CMAKE_PREFIX_PATH="$PWD/spirv-prefix:$PWD/spirv-tools-prefix" \
+          meson setup mesa/build-native mesa \
+            -Dvulkan-drivers=panfrost \
+            -Dgallium-drivers= \
+            -Dglx=disabled -Degl=disabled -Dgbm=disabled \
+            -Dplatforms= \
+            -Dzstd=disabled \
+            -Dmicrosoft-clc=disabled \
+            -Dpanfrost-native-only=true \
+            -Dc_args=-I${{ github.workspace }}/src/backend
+          ninja -C mesa/build-native src/panfrost/vulkan/libvulkan_panfrost.so

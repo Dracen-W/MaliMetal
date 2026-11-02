@@ -1,0 +1,427 @@
+# MaliMetal patch 0008: a native-only PanVK build without libdrm.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0007.
+#
+# The target has no libdrm and no DRM render node. This option omits the
+# panfrost/panthor DRM backends, the libdrm dependency, and every DRM-only
+# branch that would otherwise require a Linux ioctl or syncobj implementation.
+# `PAN_KMOD_NATIVE_ONLY` is defined by the Meson option and the native backend
+# remains the only creation path. DRM code that still has a public declaration
+# is compiled only where the option is off.
+#
+# This is the build configuration for the target PanVK artifact; it is not a
+# hardware claim and it does not make the Linux `mesa-panvk` job target-native.
+diff --git a/meson.build b/meson.build
+index 37f2fd4..59c4cb5 100644
+--- a/meson.build
++++ b/meson.build
+@@ -1935,6 +1935,10 @@ else
+   # dependencies (such as vk-runtime) linking to it
+   dep_libdrm = null_dep
+ endif
++if get_option('panfrost-native-only')
++  dep_libdrm = null_dep
++  pre_args += '-DPAN_KMOD_NATIVE_ONLY'
++endif
+ if dep_libdrm.found()
+   pre_args += '-DHAVE_LIBDRM'
+   if with_dri_platform == 'drm' and with_dri
+diff --git a/meson.options b/meson.options
+index 93a60e3..1e12f56 100644
+--- a/meson.options
++++ b/meson.options
+@@ -915,3 +915,10 @@ option(
+   value : false,
+   description : 'Build panfrost Rust components.'
+ )
++
++option(
++  'panfrost-native-only',
++  type : 'boolean',
++  value : false,
++  description : 'Build PanVK only through the native pan_kmod backend; omit DRM backends and libdrm.',
++)
+diff --git a/src/panfrost/lib/kmod/meson.build b/src/panfrost/lib/kmod/meson.build
+index 7798b19..da40512 100644
+--- a/src/panfrost/lib/kmod/meson.build
++++ b/src/panfrost/lib/kmod/meson.build
+@@ -3,10 +3,11 @@
+ 
+ libpankmod_lib_files = files(
+   'pan_kmod.c',
+-  'panfrost_kmod.c',
+-  'panthor_kmod.c',
+   'pan_kmod_native_mali.c',
+ )
++if not get_option('panfrost-native-only')
++  libpankmod_lib_files += files('panfrost_kmod.c', 'panthor_kmod.c')
++endif
+ 
+ libpankmod_lib = static_library(
+   'pankmod_lib',
+@@ -14,11 +15,11 @@ libpankmod_lib = static_library(
+   include_directories : [inc_include, inc_src, inc_panfrost],
+   c_args : [no_override_init_args],
+   gnu_symbol_visibility : 'hidden',
+-  dependencies: [dep_libdrm, idep_mesautil, idep_pan_packers, libpanfrost_model_dep],
++  dependencies: [idep_mesautil, idep_pan_packers, libpanfrost_model_dep],
+   build_by_default : false,
+ )
+ 
+ libpankmod_dep = declare_dependency(
+   include_directories: [inc_include, inc_src],
+-  dependencies: [dep_libdrm],
++  dependencies: [],
+ )
+diff --git a/src/panfrost/lib/kmod/pan_kmod.c b/src/panfrost/lib/kmod/pan_kmod.c
+index 9ca5299..a88d9ad 100644
+--- a/src/panfrost/lib/kmod/pan_kmod.c
++++ b/src/panfrost/lib/kmod/pan_kmod.c
+@@ -4,7 +4,9 @@
+  */
+ 
+ #include <string.h>
++#ifndef PAN_KMOD_NATIVE_ONLY
+ #include <xf86drm.h>
++#endif
+ 
+ #include "util/cache_ops.h"
+ #include "util/u_memory.h"
+@@ -12,6 +14,7 @@
+ #include "pan_kmod.h"
+ #include "pan_kmod_backend.h"
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ extern const struct pan_kmod_ops panfrost_kmod_ops;
+ extern const struct pan_kmod_ops panthor_kmod_ops;
+ 
+@@ -28,6 +31,7 @@ static const struct {
+       &panthor_kmod_ops,
+    },
+ };
++#endif
+ 
+ static void *
+ default_zalloc(const struct pan_kmod_allocator *allocator, size_t size,
+@@ -47,6 +51,7 @@ static const struct pan_kmod_allocator default_allocator = {
+    .free = default_free,
+ };
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ struct pan_kmod_dev *
+ pan_kmod_dev_create(int fd, uint32_t flags,
+                     const struct pan_kmod_allocator *allocator)
+@@ -80,6 +85,7 @@ pan_kmod_dev_create(int fd, uint32_t flags,
+    drmFreeVersion(version);
+    return dev;
+ }
++#endif
+ 
+ struct pan_kmod_dev *
+ pan_kmod_dev_create_native(const struct pan_kmod_ops *ops, uint32_t flags,
+@@ -167,6 +173,10 @@ pan_kmod_bo_put(struct pan_kmod_bo *bo)
+ struct pan_kmod_bo *
+ pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd)
+ {
++#ifdef PAN_KMOD_NATIVE_ONLY
++   (void)dev; (void)fd;
++   return NULL;
++#else
+    struct pan_kmod_bo *bo = NULL;
+    struct pan_kmod_bo **slot;
+ 
+@@ -212,6 +222,7 @@ err_unlock:
+    simple_mtx_unlock(&dev->handle_to_bo.lock);
+ 
+    return NULL;
++#endif
+ }
+ 
+ void
+diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
+index d1fc643..81d523b 100644
+--- a/src/panfrost/lib/kmod/pan_kmod.h
++++ b/src/panfrost/lib/kmod/pan_kmod.h
+@@ -22,7 +22,9 @@
+ #include <fcntl.h>
+ #include <inttypes.h>
+ #include <unistd.h>
++#ifndef PAN_KMOD_NATIVE_ONLY
+ #include <xf86drm.h>
++#endif
+ 
+ #include "drm-uapi/drm.h"
+ 
+@@ -652,11 +654,15 @@ struct pan_kmod_dev {
+    void *user_priv;
+ };
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ #define pan_kmod_ioctl(fd, op, arg)                                          \
+    ({                                                                        \
+       PAN_TRACE_SCOPE(PAN_TRACE_LIB_KMOD, "pan_kmod_ioctl op=" #op);         \
+       drmIoctl(fd, op, arg);                                                 \
+    })
++#else
++#define pan_kmod_ioctl(fd, op, arg) (-1)
++#endif
+ 
+ struct pan_kmod_dev *
+ pan_kmod_dev_create(int fd, uint32_t flags,
+@@ -744,6 +750,10 @@ struct pan_kmod_bo *pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd);
+ static inline int
+ pan_kmod_bo_export(struct pan_kmod_bo *bo)
+ {
++#ifdef PAN_KMOD_NATIVE_ONLY
++   (void)bo;
++   return -1;
++#else
+    PAN_TRACE_FUNC(PAN_TRACE_LIB_KMOD);
+ 
+    int fd;
+@@ -761,6 +771,7 @@ pan_kmod_bo_export(struct pan_kmod_bo *bo)
+ 
+    bo->flags |= PAN_KMOD_BO_FLAG_EXPORTED;
+    return fd;
++#endif
+ }
+ 
+ static inline bool
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index 1e4d440..5ffaa2d 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -80,6 +80,7 @@ panvk_queue_submit_batch(struct panvk_gpu_queue *queue,
+       ret = pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, &submit);
+       assert(!ret);
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+       if (PANVK_DEBUG(TRACE) || PANVK_DEBUG(SYNC)) {
+          ret = drmSyncobjWait(dev->drm_fd, &submit.out_sync, 1, INT64_MAX, 0,
+                               NULL);
+@@ -90,6 +91,7 @@ panvk_queue_submit_batch(struct panvk_gpu_queue *queue,
+          panvk_pool_invalidate_maps(&cmdbuf->desc_pool);
+          pan_kmod_flush_bo_map_syncs(dev->kmod.dev);
+       }
++#endif
+ 
+       if (PANVK_DEBUG(TRACE)) {
+          pandecode_jc(dev->debug.decode_ctx, batch->vtc_jc.first_job,
+@@ -123,6 +125,7 @@ panvk_queue_submit_batch(struct panvk_gpu_queue *queue,
+ 
+       ret = pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, &submit);
+       assert(!ret);
++#ifndef PAN_KMOD_NATIVE_ONLY
+       if (PANVK_DEBUG(TRACE) || PANVK_DEBUG(SYNC)) {
+          ret = drmSyncobjWait(dev->drm_fd, &submit.out_sync, 1, INT64_MAX, 0,
+                               NULL);
+@@ -133,6 +136,7 @@ panvk_queue_submit_batch(struct panvk_gpu_queue *queue,
+          panvk_pool_invalidate_maps(&cmdbuf->desc_pool);
+          pan_kmod_flush_bo_map_syncs(dev->kmod.dev);
+       }
++#endif
+ 
+       if (PANVK_DEBUG(TRACE))
+          pandecode_jc(dev->debug.decode_ctx, batch->frag_jc.first_job,
+@@ -445,6 +449,7 @@ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+       return VK_SUCCESS;
+    }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+    int ret = drmSyncobjCreate(device->drm_fd, DRM_SYNCOBJ_CREATE_SIGNALED,
+                               &queue->sync);
+    if (ret) {
+@@ -453,6 +458,7 @@ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+    }
+ 
+    queue->vk.driver_submit = panvk_per_arch(gpu_queue_submit);
++#endif
+    *out_queue = &queue->vk;
+    return VK_SUCCESS;
+ 
+@@ -470,8 +476,10 @@ void panvk_per_arch(destroy_gpu_queue)(struct vk_queue *vk_queue)
+    struct panvk_device *dev = to_panvk_device(vk_queue->base.device);
+ 
+    vk_queue_finish(&queue->vk);
++#ifndef PAN_KMOD_NATIVE_ONLY
+    if (!queue->native)
+       drmSyncobjDestroy(dev->drm_fd, queue->sync);
++#endif
+    vk_free(&dev->vk.alloc, queue);
+ }
+ 
+@@ -504,10 +512,12 @@ panvk_per_arch(QueueWaitIdle)(VkQueue _queue)
+       return VK_SUCCESS;
+    }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+    ASSERTED int ret = drmSyncobjWait(dev->drm_fd, &queue->sync, 1,
+                                      INT64_MAX, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+                                      NULL);
+    assert(!ret);
++#endif
+ 
+    return VK_SUCCESS;
+ }
+diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_instance.c
+index dbc1b39..1cecc97 100644
+--- a/src/panfrost/vulkan/panvk_instance.c
++++ b/src/panfrost/vulkan/panvk_instance.c
+@@ -130,6 +130,7 @@ static const struct vk_instance_extension_table panvk_instance_extensions = {
+ #endif
+ };
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ static VkResult
+ panvk_physical_device_try_create(struct vk_instance *vk_instance,
+                                  struct _drmDevice *drm_device,
+@@ -157,6 +158,7 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
+    *out = &device->vk;
+    return VK_SUCCESS;
+ }
++#endif
+ 
+ static VkResult
+ panvk_physical_device_try_create_native(struct vk_instance *vk_instance,
+@@ -297,8 +299,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+    };
+ 
+    instance->vk.physical_devices.enumerate = panvk_enumerate_native;
++#ifndef PAN_KMOD_NATIVE_ONLY
+    instance->vk.physical_devices.try_create_for_drm =
+       panvk_physical_device_try_create;
++#endif
+    instance->vk.physical_devices.destroy = panvk_destroy_physical_device;
+ 
+    if (PANVK_DEBUG(STARTUP))
+diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
+index a5a364e..fb3728f 100644
+--- a/src/panfrost/vulkan/panvk_physical_device.c
++++ b/src/panfrost/vulkan/panvk_physical_device.c
+@@ -114,6 +114,10 @@ create_kmod_dev(struct panvk_physical_device *device,
+       return VK_SUCCESS;
+    }
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++   (void)drm_device;
++   return VK_ERROR_INCOMPATIBLE_DRIVER;
++#else
+    if (drm_device == NULL || drm_device->nodes[DRM_NODE_RENDER] == NULL)
+       return VK_ERROR_INCOMPATIBLE_DRIVER;
+ 
+@@ -160,6 +164,7 @@ create_kmod_dev(struct panvk_physical_device *device,
+    }
+ 
+    return VK_SUCCESS;
++#endif
+ }
+ 
+ static VkResult
+@@ -169,12 +174,17 @@ get_drm_device_ids(struct panvk_physical_device *device,
+ {
+    struct stat st;
+ 
++   (void)st;
+    if (device->native) {
+       device->drm.render_rdev = 0;
+       device->drm.primary_rdev = 0;
+       return VK_SUCCESS;
+    }
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++   (void)drm_device;
++   return VK_SUCCESS;
++#else
+    if (drm_device == NULL || drm_device->nodes[DRM_NODE_RENDER] == NULL)
+       return VK_ERROR_INCOMPATIBLE_DRIVER;
+ 
+@@ -195,6 +205,7 @@ get_drm_device_ids(struct panvk_physical_device *device,
+    }
+ 
+    return VK_SUCCESS;
++#endif
+ }
+ 
+ static void
+@@ -435,6 +446,7 @@ get_device_sync_types(struct panvk_physical_device *device,
+    const unsigned arch = pan_arch(device->kmod.dev->props.gpu_id);
+    uint32_t sync_type_count = 0;
+ 
++   (void)arch;
+    if (device->native) {
+       device->native_sync_type = *panvk_native_sync_get_type();
+       device->sync_types[sync_type_count++] = &device->native_sync_type;
+@@ -442,6 +454,7 @@ get_device_sync_types(struct panvk_physical_device *device,
+       return VK_SUCCESS;
+    }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+    device->drm_syncobj_type = vk_drm_syncobj_get_type(device->kmod.dev->fd);
+    if (!device->drm_syncobj_type.features) {
+       return vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+@@ -466,6 +479,7 @@ get_device_sync_types(struct panvk_physical_device *device,
+ 
+    assert(sync_type_count < ARRAY_SIZE(device->sync_types));
+    device->sync_types[sync_type_count] = NULL;
++#endif
+ 
+    return VK_SUCCESS;
+ }
+diff --git a/src/panfrost/vulkan/panvk_physical_device.h b/src/panfrost/vulkan/panvk_physical_device.h
+index 89cdf4d..8d33528 100644
+--- a/src/panfrost/vulkan/panvk_physical_device.h
++++ b/src/panfrost/vulkan/panvk_physical_device.h
+@@ -16,6 +16,11 @@
+ #include "vk_physical_device.h"
+ #include "vk_sync.h"
+ #include "vk_sync_timeline.h"
++
++#ifdef PAN_KMOD_NATIVE_ONLY
++struct _drmDevice;
++typedef struct _drmDevice *drmDevicePtr;
++#endif
+ #include "panvk_native_sync.h"
+ #include "vk_util.h"
+ #include "wsi_common.h"
+diff --git a/src/panfrost/vulkan/panvk_vX_device.c b/src/panfrost/vulkan/panvk_vX_device.c
+index 6978027..8eaa3a7 100644
+--- a/src/panfrost/vulkan/panvk_vX_device.c
++++ b/src/panfrost/vulkan/panvk_vX_device.c
+@@ -386,8 +386,12 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+    device->vk.shader_ops = &panvk_per_arch(device_shader_ops);
+    device->vk.check_status = panvk_device_check_status;
+    device->vk.get_timestamp = panvk_device_get_timestamp;
++#ifdef PAN_KMOD_NATIVE_ONLY
++   device->vk.copy_sync_payloads = NULL;
++#else
+    device->vk.copy_sync_payloads =
+       physical_device->native ? NULL : vk_drm_syncobj_copy_payloads;
++#endif
+ 
+    device->kmod.allocator = (struct pan_kmod_allocator){
+       .zalloc = panvk_kmod_zalloc,
+@@ -402,10 +406,12 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+        * it. */
+       device->kmod.dev = physical_device->kmod.dev;
+       device->native_shared_kmod = true;
++#ifndef PAN_KMOD_NATIVE_ONLY
+    } else {
+       device->kmod.dev = pan_kmod_dev_create(
+          os_dupfd_cloexec(physical_device->kmod.dev->fd),
+          physical_device->kmod.dev->flags, &device->kmod.allocator);
++#endif
+    }
+ 
+    if (!device->kmod.dev) {
+@@ -545,8 +551,10 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+                  device->printf.bo->addr.host);
+ 
+    device->drm_fd = device->kmod.dev->fd;
++#ifndef PAN_KMOD_NATIVE_ONLY
+    if (!physical_device->native)
+       vk_device_set_drm_fd(&device->vk, device->kmod.dev->fd);
++#endif
+ 
+ 
+    result = panvk_precomp_init(device);
