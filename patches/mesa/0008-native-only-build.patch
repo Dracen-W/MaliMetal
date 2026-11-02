@@ -316,6 +316,39 @@ index dbc1b39..1cecc97 100644
     instance->vk.physical_devices.destroy = panvk_destroy_physical_device;
  
     if (PANVK_DEBUG(STARTUP))
+diff --git a/src/panfrost/vulkan/panvk_macros.h b/src/panfrost/vulkan/panvk_macros.h
+index 09253ff..2d40cdc 100644
+--- a/src/panfrost/vulkan/panvk_macros.h
++++ b/src/panfrost/vulkan/panvk_macros.h
+@@ -43,6 +43,19 @@ panvk_catch_indirect_alloc_failure(VkResult error)
+ 
+ #define panvk_arch_name(name, version) panvk_##version##_##name
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++#define panvk_arch_dispatch(arch, name, ...)                                   \
++   do {                                                                        \
++      (void)(arch);                                                            \
++      panvk_arch_name(name, v7)(__VA_ARGS__);                                  \
++   } while (0)
++
++#define panvk_arch_dispatch_ret(arch, name, ret, ...)                          \
++   do {                                                                        \
++      (void)(arch);                                                            \
++      ret = panvk_arch_name(name, v7)(__VA_ARGS__);                            \
++   } while (0)
++#else
+ #define panvk_arch_dispatch(arch, name, ...)                                   \
+    do {                                                                        \
+       switch (arch) {                                                          \
+@@ -94,6 +107,8 @@ panvk_catch_indirect_alloc_failure(VkResult error)
+          UNREACHABLE("Unsupported architecture");                              \
+       }                                                                        \
+    } while (0)
++#endif
++
+ 
+ #ifdef PAN_ARCH
+ #if PAN_ARCH == 6
 diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
 index a5a364e..fb3728f 100644
 --- a/src/panfrost/vulkan/panvk_physical_device.c
