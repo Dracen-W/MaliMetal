@@ -5,10 +5,10 @@
 #
 # The target has no libdrm and no DRM render node. This option omits the
 # panfrost/panthor DRM backends, the libdrm dependency, the DRM display WSI,
-# and every DRM-only branch that would otherwise require a Linux ioctl or
-# syncobj implementation. `PAN_KMOD_NATIVE_ONLY` is defined by the Meson option
-# and the native backend remains the only creation path. DRM code that still
-# has a public declaration is compiled only where the option is off.
+# the CSF/Valhall DRM architectures, and every DRM-only branch that would
+# otherwise require a Linux ioctl or syncobj implementation. The native backend
+# remains the only creation path. DRM code that still has a public declaration
+# is compiled only where the option is off.
 #
 # This is the build configuration for the target PanVK artifact; it is not a
 # hardware claim and it does not make the Linux `mesa-panvk` job target-native.
@@ -264,6 +264,27 @@ index 1e4d440..5ffaa2d 100644
  
     return VK_SUCCESS;
  }
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+index ec2b5d8..07d796d 100644
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -142,7 +142,15 @@ common_per_arch_files = [
+   sha1_h,
+ ]
+ 
+-foreach arch : [6, 7, 10, 12, 13, 14]
++if get_option('panfrost-native-only')
++  # The native Mali backend is Bifrost v7 only; do not compile CSF/Valhall
++  # DRM paths that cannot be used by this device.
++  panvk_archs = [7]
++else
++  panvk_archs = [6, 7, 10, 12, 13, 14]
++endif
++
++foreach arch : panvk_archs
+   per_arch_files = common_per_arch_files
+   inc_panvk_per_arch = []
+ 
 diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_instance.c
 index dbc1b39..1cecc97 100644
 --- a/src/panfrost/vulkan/panvk_instance.c
