@@ -4,11 +4,11 @@
 # Depends on 0001-0007.
 #
 # The target has no libdrm and no DRM render node. This option omits the
-# panfrost/panthor DRM backends, the libdrm dependency, and every DRM-only
-# branch that would otherwise require a Linux ioctl or syncobj implementation.
-# `PAN_KMOD_NATIVE_ONLY` is defined by the Meson option and the native backend
-# remains the only creation path. DRM code that still has a public declaration
-# is compiled only where the option is off.
+# panfrost/panthor DRM backends, the libdrm dependency, the DRM display WSI,
+# and every DRM-only branch that would otherwise require a Linux ioctl or
+# syncobj implementation. `PAN_KMOD_NATIVE_ONLY` is defined by the Meson option
+# and the native backend remains the only creation path. DRM code that still
+# has a public declaration is compiled only where the option is off.
 #
 # This is the build configuration for the target PanVK artifact; it is not a
 # hardware claim and it does not make the Linux `mesa-panvk` job target-native.
@@ -425,3 +425,29 @@ index 6978027..8eaa3a7 100644
  
  
     result = panvk_precomp_init(device);
+diff --git a/src/vulkan/meson.build b/src/vulkan/meson.build
+index 614a33a..c6b8da4 100644
+--- a/src/vulkan/meson.build
++++ b/src/vulkan/meson.build
+@@ -54,7 +54,7 @@ if with_platform_wayland
+   vulkan_wsi_deps += dep_wayland_client
+   vulkan_wsi_list += '-DVK_USE_PLATFORM_WAYLAND_KHR'
+ endif
+-if system_has_kms_drm and not with_platform_android
++if system_has_kms_drm and not with_platform_android and not get_option('panfrost-native-only')
+   vulkan_wsi_deps += [dep_libdrm, dep_display_info]
+   vulkan_wsi_list += '-DVK_USE_PLATFORM_DISPLAY_KHR'
+ endif
+diff --git a/src/vulkan/wsi/meson.build b/src/vulkan/wsi/meson.build
+index 80925d1..ed48a45 100644
+--- a/src/vulkan/wsi/meson.build
++++ b/src/vulkan/wsi/meson.build
+@@ -38,7 +38,7 @@ if with_platform_macos
+   files_vulkan_wsi += files('wsi_common_metal.c', 'wsi_common_metal_layer.m')
+ endif
+ 
+-if system_has_kms_drm and not with_platform_android
++if system_has_kms_drm and not with_platform_android and not get_option('panfrost-native-only')
+   files_vulkan_wsi += files('wsi_common_display.c')
+ endif
+ 
