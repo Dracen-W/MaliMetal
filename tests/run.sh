@@ -97,9 +97,13 @@ run_test test_fake_service $lifecycle_sources tests/test_fake_service.cpp
 # shellcheck disable=SC2086
 run_test test_publish_policy src/plugin/NativeMaliPublish.cpp \
     tests/test_publish_policy.cpp
+kmod_frameworks=
+if [ "$(uname -s)" = Darwin ]; then
+    kmod_frameworks="-framework IOKit -framework CoreFoundation"
+fi
 # shellcheck disable=SC2086
 run_test test_kmod_api $lifecycle_sources src/backend/native_mali_kmod.cpp \
-    tests/test_kmod_api.cpp
+    tests/test_kmod_api.cpp $kmod_frameworks
 
 if [ "$(uname -s)" = Darwin ]; then
     # The Metal frontend is Objective-C++ and needs the target's Metal.framework
