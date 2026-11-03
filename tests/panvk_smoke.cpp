@@ -65,12 +65,8 @@ int main(int argc, char **argv) {
 
     auto create_instance = reinterpret_cast<PFN_vkCreateInstance>(
         get_proc(nullptr, "vkCreateInstance"));
-    auto enumerate = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(
-        get_proc(nullptr, "vkEnumeratePhysicalDevices"));
-    auto destroy_instance = reinterpret_cast<PFN_vkDestroyInstance>(
-        get_proc(nullptr, "vkDestroyInstance"));
-    if (create_instance == nullptr || enumerate == nullptr || destroy_instance == nullptr) {
-        std::fprintf(stderr, "one or more instance entry points are missing\n");
+    if (create_instance == nullptr) {
+        std::fprintf(stderr, "vkCreateInstance is missing\n");
         dlclose(lib);
         return 1;
     }
@@ -91,6 +87,19 @@ int main(int argc, char **argv) {
     VkResult result = create_instance(&info, nullptr, &instance);
     if (result != VK_SUCCESS) {
         std::fprintf(stderr, "vkCreateInstance: %d\n", result);
+        dlclose(lib);
+        return 1;
+    }
+
+    auto enumerate = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(
+        get_proc(instance, "vkEnumeratePhysicalDevices"));
+    auto destroy_instance = reinterpret_cast<PFN_vkDestroyInstance>(
+        get_proc(instance, "vkDestroyInstance"));
+    if (enumerate == nullptr || destroy_instance == nullptr) {
+        std::fprintf(stderr, "instance entry points are missing (enumerate=%p, destroy=%p)\n",
+                     reinterpret_cast<void *>(enumerate),
+                     reinterpret_cast<void *>(destroy_instance));
+        destroy_instance(instance, nullptr);
         dlclose(lib);
         return 1;
     }
