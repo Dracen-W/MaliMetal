@@ -64,8 +64,10 @@ index 102dc93..dbc1b39 100644
 +   struct vk_physical_device *device;
 +   VkResult result = panvk_physical_device_try_create_native(vk_instance,
 +                                                              &device);
-+   if (result != VK_SUCCESS)
++   if (result != VK_SUCCESS) {
++      mesa_loge("native_mali: physical device creation failed: %d", result);
 +      return result;
++   }
 +
 +   list_addtail(&device->link, &vk_instance->physical_devices.list);
 +   return VK_SUCCESS;
