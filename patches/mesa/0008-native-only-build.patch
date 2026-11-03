@@ -589,3 +589,33 @@ index f560519..fac5940 100644
     /* VK_EXT_drm_format_modifier
      *
      * Initialized by vk_image_create/init() to DRM_FORMAT_MOD_INVALID.  It's
+diff --git a/src/panfrost/vulkan/panvk_vX_physical_device.c b/src/panfrost/vulkan/panvk_vX_physical_device.c
+index 9281c39..697f30c 100644
+--- a/src/panfrost/vulkan/panvk_vX_physical_device.c
++++ b/src/panfrost/vulkan/panvk_vX_physical_device.c
+@@ -9,7 +9,9 @@
+  * SPDX-License-Identifier: MIT
+  */
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ #include <sys/sysmacros.h>
++#endif
+ 
+ #include "git_sha1.h"
+ 
+@@ -1319,6 +1321,7 @@ panvk_per_arch(get_physical_device_properties)(
+    snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
+             "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+    /* VK_EXT_physical_device_drm */
+    if (device->drm.primary_rdev) {
+       properties->drmHasPrimary = true;
+@@ -1330,6 +1333,7 @@ panvk_per_arch(get_physical_device_properties)(
+       properties->drmRenderMajor = major(device->drm.render_rdev);
+       properties->drmRenderMinor = minor(device->drm.render_rdev);
+    }
++#endif
+ 
+    /* VK_EXT_shader_module_identifier */
+    STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
