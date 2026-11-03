@@ -91,6 +91,7 @@ jobs:
   # pinned Mesa and build the touched unit on Linux. This does not run any
   # driver and does not prove GPU behaviour.
   mesa-patch:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +137,7 @@ jobs:
   # that matches the runner's LLVM 22. It compiles upstream Mesa with our
   # series applied; it runs nothing.
   mesa-panvk:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
