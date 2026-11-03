@@ -48,15 +48,25 @@ def main():
     version, starts, imports, symbols, count, fmt, sfmt = struct.unpack_from('<7I', data, base)
     if fmt != 1:
         raise SystemExit('%s: import format %d is not handled' % (path, fmt))
-    changed = 0
+    changed = skipped = 0
     for i in range(count):
         at = base + imports + 4 * i
         word, = struct.unpack_from('<I', data, at)
         ordinal, weak = word & 0xff, (word >> 8) & 1
+        name = b''
+        if sfmt == 0:
+            name_at = base + symbols + (word >> 9)
+            name = bytes(data[name_at:data.index(b'\0', name_at)])
         if ordinal == 0xfe and weak:   # flat namespace, weak
+            # The NativeMali facade is supplied by the host process (or a
+            # test), not by this dylib. Binding it to the image itself would
+            # make every call NULL, so leave these as real lookups.
+            if name.lstrip(b'_').startswith(b'native_mali_kmod_'):
+                skipped += 1
+                continue
             struct.pack_into('<I', data, at, word & ~0xff)   # library ordinal 0: this image
             changed += 1
-    print('%s: %d of %d imports were weak flat-namespace lookups, now lookups in the image itself' % (path, changed, count))
+    print('%s: %d of %d weak flat-namespace imports now resolve in the image itself (%d NativeMali imports left for the host)' % (path, changed, count, skipped))
     if not changed:
         return
     if signature:

@@ -15,6 +15,8 @@
 #include "NativeMaliClient.h"
 #include "NativeMaliDevice.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <new>
 
 #if defined(__APPLE__)
@@ -217,7 +219,7 @@ NativeMaliKmod *native_mali_kmod_create(const NativeMaliTransportCallbacks *tran
     return sized;
 }
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(MALIMETAL_TEST_NO_DEFAULT)
 NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
     NativeMaliResult ignored = NATIVE_MALI_RESULT_OK;
     if (error == nullptr)
@@ -251,7 +253,7 @@ NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
     kmod->connection = static_cast<uint32_t>(connection);
     return kmod;
 }
-#else
+#elif !defined(MALIMETAL_TEST_NO_DEFAULT)
 NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
     if (error != nullptr)
         *error = NATIVE_MALI_RESULT_UNSUPPORTED;
@@ -311,8 +313,28 @@ NativeMaliResult native_mali_kmod_cpu_map_address(NativeMaliKmod *kmod, uint64_t
     if (kmod == nullptr || token == nullptr || address == nullptr || bytes == nullptr)
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
 #if defined(__APPLE__)
-    if (kmod->connection == 0)
+    if (kmod->connection == 0) {
+#if defined(MALIMETAL_TESTING)
+        uint32_t local_token = 0;
+        uint64_t local_bytes = 0;
+        const NativeMaliResult result = to_result(
+            kmod->device.cpu_map(handle, &local_token, &local_bytes));
+        if (result != NATIVE_MALI_RESULT_OK)
+            return result;
+        if (local_bytes > SIZE_MAX)
+            return NATIVE_MALI_RESULT_OUT_OF_MEMORY;
+        void *mapped = nullptr;
+        if (posix_memalign(&mapped, kPageBytes, static_cast<size_t>(local_bytes)) != 0)
+            return NATIVE_MALI_RESULT_OUT_OF_MEMORY;
+        std::memset(mapped, 0, static_cast<size_t>(local_bytes));
+        *token = local_token;
+        *address = mapped;
+        *bytes = local_bytes;
+        return NATIVE_MALI_RESULT_OK;
+#else
         return NATIVE_MALI_RESULT_UNSUPPORTED;
+#endif
+    }
     uint32_t local_token = 0;
     uint64_t local_bytes = 0;
     const NativeMaliResult result = to_result(
@@ -344,8 +366,14 @@ NativeMaliResult native_mali_kmod_cpu_address_unmap(NativeMaliKmod *kmod, uint32
     if (kmod == nullptr || token == 0 || address == nullptr)
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
 #if defined(__APPLE__)
-    if (kmod->connection == 0)
+    if (kmod->connection == 0) {
+#if defined(MALIMETAL_TESTING)
+        std::free(address);
+        return NATIVE_MALI_RESULT_OK;
+#else
         return NATIVE_MALI_RESULT_UNSUPPORTED;
+#endif
+    }
     const kern_return_t kr = IOConnectUnmapMemory64(
         static_cast<io_connect_t>(kmod->connection), token, mach_task_self(),
         static_cast<mach_vm_address_t>(reinterpret_cast<uintptr_t>(address)));

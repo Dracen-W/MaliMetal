@@ -11,7 +11,7 @@ jobs:
 
       - name: Install build tools
         run: |
-          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools
+          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools vulkan-headers
           python3 -m venv "$RUNNER_TEMP/pyvenv"
           "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
@@ -48,6 +48,31 @@ jobs:
             echo 'macOS PanVK still has a hard xmlconfig/dri dependency' >&2
             exit 1
           fi
+          nm -m "$dylib" | grep '_native_mali_kmod_create_default' || {
+            echo 'the NativeMali facade import was bound to the image itself' >&2
+            exit 1
+          }
+
+      - name: Build and run the PanVK smoke test
+        run: |
+          set -eu
+          mkdir -p build
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            -DMALIMETAL_TESTING -DMALIMETAL_TEST_NO_DEFAULT \
+            -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport -Itests \
+            -I/opt/homebrew/include \
+            tests/panvk_smoke.cpp \
+            src/backend/native_mali_kmod.cpp \
+            src/native_mali/NativeMaliAbiTable.cpp \
+            src/native_mali/NativeMaliClient.cpp \
+            src/native_mali/NativeMaliError.cpp \
+            src/native_mali/NativeMaliBoTable.cpp \
+            src/native_mali/NativeMaliIovaAllocator.cpp \
+            src/native_mali/NativeMaliFenceTracker.cpp \
+            src/native_mali/NativeMaliDevice.cpp \
+            -Wl,-export_dynamic -framework IOKit -framework CoreFoundation \
+            -o build/panvk_smoke
+          build/panvk_smoke mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
 
       - name: Upload macOS canary
         uses: actions/upload-artifact@v4
