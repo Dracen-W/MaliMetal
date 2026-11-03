@@ -108,6 +108,7 @@ jobs:
           shasum -a 256 "$dylib" mali-gpu.addon > artifacts.sha256
 
       - name: Upload target artifacts
+        if: false
         uses: actions/upload-artifact@v4
         with:
           name: mali-target
