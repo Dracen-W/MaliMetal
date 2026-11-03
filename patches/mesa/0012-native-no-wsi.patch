@@ -23,7 +23,7 @@ diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
 diff --git a/src/panfrost/vulkan/panvk_image.c b/src/panfrost/vulkan/panvk_image.c
 --- a/src/panfrost/vulkan/panvk_image.c
 +++ b/src/panfrost/vulkan/panvk_image.c
-@@ -1334,7 +1334,7 @@ panvk_image_bind(struct panvk_device *dev,
+@@ -1334,6 +1334,6 @@ panvk_image_bind(struct panvk_device *dev,
  
     if (!mem) {
 -      VkDeviceMemory mem_handle;
