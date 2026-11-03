@@ -619,3 +619,71 @@ index 9281c39..697f30c 100644
  
     /* VK_EXT_shader_module_identifier */
     STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+index 9885d52..f7c6de3 100644
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -202,6 +202,10 @@ if with_platform_android
+   libpanvk_files += files('panvk_android.c')
+ endif
+ 
++if not get_option('panfrost-native-only')
++  panvk_deps += idep_vulkan_wsi
++endif
++
+ libvulkan_panfrost = shared_library(
+   'vulkan_panfrost',
+   [libpanvk_files, panvk_entrypoints, panvk_tracepoints, panvk_drirc],
+@@ -229,7 +233,6 @@ libvulkan_panfrost = shared_library(
+     panvk_deps,
+     idep_vulkan_util,
+     idep_vulkan_runtime,
+-    idep_vulkan_wsi,
+     idep_mesautil,
+   ],
+   c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
+diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_instance.c
+index 102dc93..0dd096d 100644
+--- a/src/panfrost/vulkan/panvk_instance.c
++++ b/src/panfrost/vulkan/panvk_instance.c
+@@ -240,8 +240,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+ 
+    vk_instance_dispatch_table_from_entrypoints(
+       &dispatch_table, &panvk_instance_entrypoints, true);
++#ifndef PAN_KMOD_NATIVE_ONLY
+    vk_instance_dispatch_table_from_entrypoints(
+       &dispatch_table, &wsi_instance_entrypoints, false);
++#endif
+    result = vk_instance_init(&instance->vk, &panvk_instance_extensions,
+                              &dispatch_table, pCreateInfo, pAllocator);
+    if (result != VK_SUCCESS) {
+diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
+index e7e64e2..a7a7575 100644
+--- a/src/panfrost/vulkan/panvk_physical_device.c
++++ b/src/panfrost/vulkan/panvk_physical_device.c
+@@ -529,8 +529,10 @@ panvk_physical_device_init(struct panvk_physical_device *device,
+    struct vk_physical_device_dispatch_table dispatch_table;
+    vk_physical_device_dispatch_table_from_entrypoints(
+       &dispatch_table, &panvk_physical_device_entrypoints, true);
++#ifndef PAN_KMOD_NATIVE_ONLY
+    vk_physical_device_dispatch_table_from_entrypoints(
+       &dispatch_table, &wsi_physical_device_entrypoints, false);
++#endif
+ 
+    result =
+       vk_physical_device_init(&device->vk, &instance->vk, &supported_extensions,
+diff --git a/src/panfrost/vulkan/panvk_vX_device.c b/src/panfrost/vulkan/panvk_vX_device.c
+index 5e54c68..f9c4709 100644
+--- a/src/panfrost/vulkan/panvk_vX_device.c
++++ b/src/panfrost/vulkan/panvk_vX_device.c
+@@ -370,8 +370,10 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+       &dispatch_table, &panvk_per_arch(device_entrypoints), PAN_ARCH > 9);
+    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+                                              &panvk_device_entrypoints, false);
++#ifndef PAN_KMOD_NATIVE_ONLY
+    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+                                              &wsi_device_entrypoints, false);
++#endif
+ 
+    result = vk_device_init(&device->vk, &physical_device->vk, &dispatch_table,
+                            pCreateInfo, pAllocator);
