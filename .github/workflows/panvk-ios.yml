@@ -55,6 +55,7 @@ jobs:
           [binaries]
           c = ['$clang']
           cpp = ['$clangxx']
+          objc = ['$clang']
           ar = ['$(xcrun --sdk iphoneos --find ar)']
           strip = ['$(xcrun --sdk iphoneos --find strip)']
           [host_machine]
@@ -68,6 +69,8 @@ jobs:
           cpp_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk', '-I${{ github.workspace }}/src/backend', '-Dsecure_getenv=getenv']
           c_link_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk']
           cpp_link_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk']
+          objc_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk', '-I${{ github.workspace }}/src/backend']
+          objc_link_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk']
           EOF
           export PATH="$PWD/mesa-host/bin:$PATH"
           unset PKG_CONFIG_PATH PKG_CONFIG_LIBDIR
