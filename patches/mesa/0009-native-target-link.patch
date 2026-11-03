@@ -1,0 +1,43 @@
+# MaliMetal patch 0009: keep the native target link self-contained.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0008.
+#
+# Native PanVK does not use the DRM queue, WSI image paths, or swapchain helpers,
+# so compile the DRM submit entrypoint out and explicitly retain the runtime and
+# WSI archives needed by the remaining image/runtime code. This is a build and
+# link correction for the target; it does not claim hardware validation.
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index 1e4d440..8eca4f7 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -316,6 +316,7 @@ panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
+    return VK_SUCCESS;
+ }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ VkResult
+ panvk_per_arch(gpu_queue_submit)(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
+ {
+@@ -410,6 +411,8 @@ panvk_per_arch(gpu_queue_submit)(struct vk_queue *vk_queue, struct vk_queue_subm
+ 
+    return VK_SUCCESS;
+ }
++#endif
++
+ 
+ VkResult
+ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+index 6248ebe..bfc7457 100644
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -214,7 +214,7 @@ libvulkan_panfrost = shared_library(
+   link_whole : [panvk_per_arch_libs],
+   link_with : [
+     libpanfrost_shared,
+-    (get_option('panfrost-native-only') ? [libvulkan_wsi] : []),
++    (get_option('panfrost-native-only') ? [libvulkan_wsi, libvulkan_lite_runtime, libvulkan_runtime, libvulkan_instance] : []),
+     libpanfrost_decode,
+     libpanfrost_lib,
+     libpanfrost_compiler,
