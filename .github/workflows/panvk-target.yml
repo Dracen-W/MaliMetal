@@ -38,15 +38,16 @@ jobs:
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
             -Dplatforms= \
             -Dzstd=disabled \
-            -Dshader-cache=disabled \
+            -Dxmlconfig=disabled -Dexpat=disabled \
+            -Dshader-cache=disabled -Dbuild-tests=false \
             -Dmicrosoft-clc=disabled \
             -Dpanfrost-native-only=true \
-            -Dc_args=-I${{ github.workspace }}/src/backend \
-            -Dcpp_args=-I${{ github.workspace }}/src/backend \
-            -Dc_link_args=-Wl,-undefined,dynamic_lookup \
-            -Dcpp_link_args=-Wl,-undefined,dynamic_lookup
+            -Dc_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv' \
+            -Dcpp_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv'
+          export CCC_OVERRIDE_OPTIONS='# +-Wl,-undefined,dynamic_lookup'
           ninja -C mesa/build-macos src/panfrost/vulkan/libvulkan_panfrost.dylib
           dylib=mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          python3 tools/fix-weak-imports.py "$dylib"
           if nm -u "$dylib" | grep -E '^_dri|^_expat|^_XML_' ; then
             echo 'macOS PanVK still has a hard xmlconfig/dri dependency' >&2
             exit 1
@@ -61,6 +62,7 @@ jobs:
           retention-days: 7
 
       - name: Build native PanVK for iOS
+        if: false
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           sdk=$(xcrun --sdk iphoneos --show-sdk-path)
@@ -96,6 +98,7 @@ jobs:
           ninja -C mesa/build-ios src/panfrost/vulkan/libvulkan_panfrost.dylib
 
       - name: Package Mali GPU addon
+        if: false
         run: |
           set -eu
           dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib

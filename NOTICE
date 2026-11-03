@@ -70,6 +70,13 @@ Third-party material
    combined work stays GPL-2.0-only. The LGPL-3.0-or-later option is not used.
    The licence is verified by tools/deps.py against deps/deps.toml.
 
+3. Ken-u/MaliMetal — Darwin PanVK build reference
+   SPDX-License-Identifier: BSD-2-Clause-Patent for the original code
+   https://github.com/Ken-u/MaliMetal
+   The host-tool/cross-build structure, the dynamic-lookup link timing and
+   tools/fix-weak-imports.py are adapted from that project. Its Panthor/Mali
+   service shim is not used because this port targets NativeMali/Bifrost.
+
 2. Mesa — PanVK and the Panfrost/Bifrost compiler
    SPDX-License-Identifier: MIT (per file)
    Copyright © 2019-2026 Collabora Ltd., Alyssa Rosenzweig, Broadcom and other
