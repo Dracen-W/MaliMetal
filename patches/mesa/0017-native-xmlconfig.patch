@@ -1,0 +1,19 @@
+# MaliMetal patch 0017: link xmlconfig into native PanVK.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0015.
+#
+# The WSI archive used to provide the xmlconfig dependency transitively. Native
+# PanVK still parses drirc and references the dri* symbols, so keep the
+# xmlconfig dependency explicit after the WSI target is omitted.
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -237,6 +237,7 @@ libvulkan_panfrost = shared_library(
+     idep_vulkan_runtime,
+     idep_vulkan_wsi_headers,
+     idep_mesautil,
++    idep_xmlconfig,
+   ],
+   c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
+   link_args : [vulkan_icd_link_args, ld_args_bsymbolic, ld_args_gc_sections, ld_args_build_id, panvk_native_link_args],

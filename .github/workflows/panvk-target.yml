@@ -41,8 +41,23 @@ jobs:
             -Dmicrosoft-clc=disabled \
             -Dpanfrost-native-only=true \
             -Dc_args=-I${{ github.workspace }}/src/backend \
-            -Dcpp_args=-I${{ github.workspace }}/src/backend
+            -Dcpp_args=-I${{ github.workspace }}/src/backend \
+            -Dc_link_args=-Wl,-undefined,dynamic_lookup \
+            -Dcpp_link_args=-Wl,-undefined,dynamic_lookup
           ninja -C mesa/build-macos src/panfrost/vulkan/libvulkan_panfrost.dylib
+          dylib=mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          if nm -u "$dylib" | grep -E '^_dri|^_expat|^_XML_' ; then
+            echo 'macOS PanVK still has a hard xmlconfig/dri dependency' >&2
+            exit 1
+          fi
+
+      - name: Upload macOS PanVK
+        uses: actions/upload-artifact@v4
+        with:
+          name: panvk-macos
+          path: mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Build native PanVK for iOS
         run: |
