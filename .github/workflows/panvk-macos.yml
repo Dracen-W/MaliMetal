@@ -1,0 +1,58 @@
+name: PanVK macOS canary
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools
+          python3 -m venv "$RUNNER_TEMP/pyvenv"
+          "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
+          echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
+
+      - name: Clone Mesa at the pinned tag
+        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: Apply the patch series
+        run: |
+          set -eu
+          for patch in patches/mesa/*.patch; do
+            echo "applying $patch"
+            git -C mesa apply "../$patch"
+          done
+
+      - name: Build native PanVK for macOS
+        run: |
+          set -eu
+          meson setup mesa/build-macos mesa \
+            -Dvulkan-drivers=panfrost -Dgallium-drivers= \
+            -Dglx=disabled -Degl=disabled -Dgbm=disabled -Dplatforms= \
+            -Dzstd=disabled -Dxmlconfig=disabled -Dexpat=disabled \
+            -Dshader-cache=disabled -Dbuild-tests=false \
+            -Dmicrosoft-clc=disabled -Dpanfrost-native-only=true \
+            -Dc_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv' \
+            -Dcpp_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv'
+          export CCC_OVERRIDE_OPTIONS='# +-Wl,-undefined,dynamic_lookup'
+          ninja -C mesa/build-macos src/panfrost/vulkan/libvulkan_panfrost.dylib
+          dylib=mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          python3 tools/fix-weak-imports.py "$dylib"
+          if nm -u "$dylib" | grep -E '^_dri|^_expat|^_XML_' ; then
+            echo 'macOS PanVK still has a hard xmlconfig/dri dependency' >&2
+            exit 1
+          fi
+
+      - name: Upload macOS canary
+        uses: actions/upload-artifact@v4
+        with:
+          name: panvk-macos
+          path: mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          if-no-files-found: error
+          retention-days: 7
