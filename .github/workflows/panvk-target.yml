@@ -11,8 +11,10 @@ jobs:
 
       - name: Install target build tools
         run: |
-          brew install meson ninja llvm
-          python3 -m pip install --user mako pyyaml
+          brew install meson ninja llvm pkg-config
+          python3 -m venv "$RUNNER_TEMP/pyvenv"
+          "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml
+          echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
 
       - name: Clone Mason at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
