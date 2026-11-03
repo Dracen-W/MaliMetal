@@ -15,6 +15,8 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/pyvenv"
           "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
 
       - name: Clone Mason at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
