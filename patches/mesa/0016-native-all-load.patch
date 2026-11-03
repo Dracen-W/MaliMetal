@@ -1,0 +1,34 @@
+# MaliMetal patch 0016: whole-load native runtime archives with Darwin's linker.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0014.
+#
+# The generated vk_common entrypoint table lives in libvulkan_lite_runtime and
+# its implementations are in the runtime archives. A normal archive link on
+# Darwin can discard them before the generated table is resolved. Force-load
+# the whole link unit for the native target; non-Darwin and DRM builds are
+# unchanged.
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -202,6 +202,12 @@ if with_platform_android
+   libpanvk_files += files('panvk_android.c')
+ endif
+ 
++if get_option('panfrost-native-only') and host_machine.system() == 'darwin'
++  panvk_native_link_args = ['-Wl,-all_load']
++else
++  panvk_native_link_args = []
++endif
++
+ libvulkan_panfrost = shared_library(
+   'vulkan_panfrost',
+   [libpanvk_files, panvk_entrypoints, panvk_tracepoints, panvk_drirc],
+@@ -238,7 +244,7 @@ libvulkan_panfrost = shared_library(
+   ],
+   c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
+-  link_args : [vulkan_icd_link_args, ld_args_bsymbolic, ld_args_gc_sections, ld_args_build_id],
++  link_args : [vulkan_icd_link_args, ld_args_bsymbolic, ld_args_gc_sections, ld_args_build_id, panvk_native_link_args],
+   gnu_symbol_visibility : 'hidden',
+   install : true,
+ )
