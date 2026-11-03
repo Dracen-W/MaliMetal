@@ -45,6 +45,9 @@ int main(int argc, char **argv) {
     }
 
     setenv("MALIMETAL_NATIVE", "1", 1);
+    setenv("MESA_DEBUG", "1", 1);
+    setenv("MESA_LOG_LEVEL", "debug", 1);
+    setenv("PANVK_DEBUG", "1", 1);
 
     FakeNativeMaliService service;
     g_service = &service;
@@ -77,7 +80,7 @@ int main(int argc, char **argv) {
     app.applicationVersion = 1;
     app.pEngineName = "MaliMetal";
     app.engineVersion = 1;
-    app.apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
+    app.apiVersion = VK_API_VERSION_1_0;
 
     VkInstanceCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
