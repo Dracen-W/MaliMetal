@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #!/usr/bin/env python3
 """Pack native PanVK and the MaliMetal bundle into a UniXNU GPU addon."""
 import argparse
