@@ -11,7 +11,7 @@ jobs:
 
       - name: Install target build tools
         run: |
-          brew install meson ninja llvm pkg-config
+          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools
           python3 -m venv "$RUNNER_TEMP/pyvenv"
           "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
