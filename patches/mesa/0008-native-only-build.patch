@@ -698,3 +698,67 @@ diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
      idep_mesautil,
    ],
    c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index bc1bc0f..f86d7ca 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -228,6 +228,7 @@ panvk_signal_event_syncobjs(struct panvk_gpu_queue *queue,
+    }
+ }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+ VkResult
+ panvk_per_arch(gpu_queue_submit)(struct vk_queue *vk_queue, struct vk_queue_submit *submit)
+ {
+@@ -322,6 +323,7 @@ panvk_per_arch(gpu_queue_submit)(struct vk_queue *vk_queue, struct vk_queue_subm
+ 
+    return VK_SUCCESS;
+ }
++#endif
+ 
+ VkResult
+ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+diff --git a/src/panfrost/vulkan/panvk_image.c b/src/panfrost/vulkan/panvk_image.c
+index 892f301..4ffa58a 100644
+--- a/src/panfrost/vulkan/panvk_image.c
++++ b/src/panfrost/vulkan/panvk_image.c
+@@ -734,11 +734,13 @@ panvk_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
+                                                 pImage);
+    }
+ 
++#ifndef PAN_KMOD_NATIVE_ONLY
+    if (wsi_common_is_swapchain_image(pCreateInfo)) {
+       return wsi_common_create_swapchain_image(&phys_dev->wsi_device,
+                                                pCreateInfo,
+                                                pImage);
+    }
++#endif
+ 
+    struct panvk_image *image =
+       vk_image_create(&dev->vk, pCreateInfo, pAllocator, sizeof(*image));
+@@ -1338,12 +1340,14 @@ panvk_image_bind(struct panvk_device *dev,
+       if (result != VK_SUCCESS)
+          return result;
+ #else
++#ifndef PAN_KMOD_NATIVE_ONLY
+       const VkBindImageMemorySwapchainInfoKHR *swapchain_info =
+          vk_find_struct_const(bind_info->pNext,
+                               BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR);
+       assert(swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE);
+       mem_handle = wsi_common_get_memory(swapchain_info->swapchain,
+                                          swapchain_info->imageIndex);
++#endif
+ #endif
+       mem = panvk_device_memory_from_handle(mem_handle);
+       offset = 0;
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -217,6 +217,7 @@ libvulkan_panfrost = shared_library(
+   link_whole : [panvk_per_arch_libs],
+   link_with : [
+     libpanfrost_shared,
++    (get_option('panfrost-native-only') ? [libvulkan_wsi] : []),
+     libpanfrost_decode,
+     libpanfrost_lib,
+     libpanfrost_compiler,
