@@ -224,6 +224,20 @@ jobs:
             -Dc_args=-I${{ github.workspace }}/src/backend
           ninja -C mesa/build-native src/panfrost/vulkan/libvulkan_panfrost.so
 
+      - name: Verify native-only PanVK has no DRM or other arches
+        run: |
+          set -eu
+          elf=mesa/build-native/src/panfrost/vulkan/libvulkan_panfrost.so
+          if readelf -d "$elf" | grep -q 'NEEDED.*libdrm'; then
+            echo 'native PanVK still links libdrm' >&2
+            exit 1
+          fi
+          if nm -D --undefined-only "$elf" | grep -Eq 'drm|panvk_v(6|10|12|13|14)_|vk_drm_syncobj'; then
+            echo 'native PanVK still references a DRM or foreign-arch symbol' >&2
+            exit 1
+          fi
+          nm -D --defined-only "$elf" | grep -q 'vk_icdGetInstanceProcAddr'
+
       - name: Upload native-only PanVK
         uses: actions/upload-artifact@v4
         with:
