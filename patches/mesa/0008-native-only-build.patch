@@ -687,3 +687,14 @@ index 5e54c68..f9c4709 100644
  
     result = vk_device_init(&device->vk, &physical_device->vk, &dispatch_table,
                             pCreateInfo, pAllocator);
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -229,6 +229,7 @@ libvulkan_panfrost = shared_library(
+     panvk_deps,
+     idep_vulkan_util,
+     idep_vulkan_runtime,
++    idep_vulkan_wsi_headers,
+     idep_mesautil,
+   ],
+   c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
