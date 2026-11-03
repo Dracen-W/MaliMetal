@@ -28,7 +28,7 @@ diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_in
 index 102dc93..dbc1b39 100644
 --- a/src/panfrost/vulkan/panvk_instance.c
 +++ b/src/panfrost/vulkan/panvk_instance.c
-@@ -158,6 +158,45 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
+@@ -158,6 +158,48 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
     return VK_SUCCESS;
  }
  
