@@ -8,12 +8,13 @@
 diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
 --- a/src/panfrost/vulkan/meson.build
 +++ b/src/panfrost/vulkan/meson.build
-@@ -237,7 +237,7 @@ libvulkan_panfrost = shared_library(
+@@ -237,7 +237,8 @@ libvulkan_panfrost = shared_library(
      panvk_deps,
      idep_vulkan_util,
      idep_vulkan_runtime,
 -    idep_vulkan_wsi,
 +    idep_vulkan_wsi_headers,
++    idep_xmlconfig,
      idep_mesautil,
    ],
    c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
