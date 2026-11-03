@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
     }
 
     setenv("MALIMETAL_NATIVE", "1", 1);
+    setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
     setenv("MESA_DEBUG", "1", 1);
     setenv("MESA_LOG_LEVEL", "debug", 1);
     setenv("PANVK_DEBUG", "1", 1);
