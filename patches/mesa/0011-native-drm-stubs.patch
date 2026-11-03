@@ -1,0 +1,53 @@
+# MaliMetal patch 0011: type-correct unused DRM calls in native PanVK.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0010.
+#
+# The native backend never enters the DRM queue/event paths, but the unused
+# branches still need declarations on a target without libdrm. Provide local
+# no-op DRM syncobj helpers and the one syncobj vtable symbol used by the type
+# check. They are unreachable from the native queue; no GPU behaviour is faked.
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+index 8eca4f7..ea5b9fe 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -30,6 +30,18 @@
+ 
+ #include "drm-uapi/panfrost_drm.h"
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++/* Unused DRM branch: keep it type-correct without libdrm. */
++static inline int drmSyncobjCreate(int fd, uint32_t flags, uint32_t *handle)
++{ (void)fd; (void)flags; (void)handle; return -1; }
++static inline int drmSyncobjDestroy(int fd, uint32_t handle)
++{ (void)fd; (void)handle; return -1; }
++static inline int drmSyncobjWait(int fd, const uint32_t *handles,
++                                 unsigned num_handles, int64_t timeout_nsec,
++                                 unsigned flags, uint32_t *first_signaled)
++{ (void)fd; (void)handles; (void)num_handles; (void)timeout_nsec; (void)flags; (void)first_signaled; return -1; }
++#endif
++
+ static void
+ panvk_queue_submit_batch(struct panvk_gpu_queue *queue,
+                          struct panvk_cmd_buffer *cmdbuf,
+diff --git a/src/panfrost/vulkan/panvk_native_sync.c b/src/panfrost/vulkan/panvk_native_sync.c
+index 21bb9da..208a597 100644
+--- a/src/panfrost/vulkan/panvk_native_sync.c
++++ b/src/panfrost/vulkan/panvk_native_sync.c
+@@ -13,6 +13,16 @@
+ #include "vk_log.h"
+ #include "panvk_device.h"
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++#include "vk_drm_syncobj.h"
++void
++vk_drm_syncobj_finish(struct vk_device *device, struct vk_sync *sync)
++{
++   (void)device;
++   (void)sync;
++}
++#endif
++
+ struct panvk_native_sync {
+    struct vk_sync sync;
+    uint64_t fence;
