@@ -2,6 +2,7 @@
 #!/usr/bin/env python3
 """Pack native PanVK and the MaliMetal bundle into a UniXNU GPU addon."""
 import argparse
+import json
 import plistlib
 import struct
 import zlib
@@ -36,8 +37,7 @@ def main():
     }
     files = [
         (f'{bundle}/libvulkan_panfrost.dylib', 0o755, args.dylib.read_bytes()),
-        (f'{bundle}/panfrost_icd.json', 0o644,
-         (plistlib.dumps(icd, fmt=plistlib.FMT_JSON)).decode().encode()),
+        (f'{bundle}/panfrost_icd.json', 0o644, json.dumps(icd).encode()),
         (f'{bundle}/Info.plist', 0o644, plistlib.dumps(info)),
     ]
     if args.publish:
