@@ -10,12 +10,15 @@
 
 #include "fake_native_mali_service.h"
 
+#include <cstdio>
+
 namespace {
 
 FakeNativeMaliService service;
 
 int trampoline(void *context, uint32_t selector, const void *input, size_t input_bytes,
                void *output, size_t output_bytes) {
+    std::fprintf(stderr, "fake facade: selector %u\n", selector);
     return static_cast<FakeNativeMaliService *>(context)->call(
         selector, input, input_bytes, output, output_bytes);
 }
@@ -23,6 +26,7 @@ int trampoline(void *context, uint32_t selector, const void *input, size_t input
 } /* namespace */
 
 extern "C" NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
+    std::fprintf(stderr, "fake facade: create_default\n");
     NativeMaliTransportCallbacks callbacks{};
     callbacks.call = trampoline;
     callbacks.context = &service;
