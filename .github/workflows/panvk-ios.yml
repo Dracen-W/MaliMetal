@@ -41,8 +41,8 @@ jobs:
             -Dllvm=enabled -Dmesa-clc=enabled -Dinstall-mesa-clc=true \
             -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true \
             -Dpanfrost-native-only=true \
-            -Dc_args='-Dsecure_getenv=getenv' \
-            -Dcpp_args='-Dsecure_getenv=getenv'
+            -Dc_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv' \
+            -Dcpp_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv'
           ninja -C mesa/build-host -j2 install
           test -x mesa-host/bin/mesa_clc
 
