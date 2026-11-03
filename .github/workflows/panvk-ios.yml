@@ -34,16 +34,18 @@ jobs:
         run: |
           set -eu
           meson setup mesa/build-host mesa --prefix="$PWD/mesa-host" \
-            -Dvulkan-drivers= -Dgallium-drivers= \
+            -Dvulkan-drivers=panfrost -Dgallium-drivers= \
             -Dglx=disabled -Degl=disabled -Dgbm=disabled -Dplatforms= \
             -Dzstd=disabled -Dxmlconfig=disabled -Dexpat=disabled \
             -Dshader-cache=disabled -Dbuild-tests=false \
             -Dllvm=enabled -Dmesa-clc=enabled -Dinstall-mesa-clc=true \
             -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true \
+            -Dpanfrost-native-only=true \
             -Dc_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv' \
             -Dcpp_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv'
           ninja -C mesa/build-host -j2 install
           test -x mesa-host/bin/mesa_clc
+          test -x mesa-host/bin/panfrost_compile
 
       - name: Cross-build PanVK for iOS
         run: |
