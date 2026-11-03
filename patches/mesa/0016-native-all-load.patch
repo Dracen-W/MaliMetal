@@ -24,7 +24,7 @@ diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
  libvulkan_panfrost = shared_library(
    'vulkan_panfrost',
    [libpanvk_files, panvk_entrypoints, panvk_tracepoints, panvk_drirc],
-@@ -238,7 +244,7 @@ libvulkan_panfrost = shared_library(
+@@ -238,6 +244,6 @@ libvulkan_panfrost = shared_library(
    ],
    c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
 -  link_args : [vulkan_icd_link_args, ld_args_bsymbolic, ld_args_gc_sections, ld_args_build_id],
