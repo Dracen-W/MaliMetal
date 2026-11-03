@@ -1,0 +1,38 @@
+# MaliMetal patch 0019: Mach-O has no GNU build-id note.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+#
+# PanVK refuses to create an instance unless build_id_find_nhdr_for_addr()
+# finds a GNU build-id note.  Mach-O does not emit one, so every instance
+# creation on macOS/iOS failed with VK_ERROR_INITIALIZATION_FAILED before the
+# native backend was reached.
+diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_instance.c
+index 102dc93..608e78d 100644
+--- a/src/panfrost/vulkan/panvk_instance.c
++++ b/src/panfrost/vulkan/panvk_instance.c
+@@ -217,6 +217,7 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+    panvk_debug_init();
+    pan_trace_init();
+ 
++#if !defined(__APPLE__)
+    const struct build_id_note *note =
+       build_id_find_nhdr_for_addr(panvk_CreateInstance);
+    if (!note) {
+@@ -229,6 +230,7 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+       return panvk_errorf(NULL, VK_ERROR_INITIALIZATION_FAILED,
+                           "build-id too short.  It needs to be a SHA");
+    }
++#endif
+ 
+    pAllocator = pAllocator ?: vk_default_allocator();
+    instance = vk_zalloc(pAllocator, sizeof(*instance), 8,
+@@ -267,7 +269,9 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
+ 
+    STATIC_ASSERT(sizeof(instance->driver_build_sha) == BLAKE3_KEY_LEN);
++#if !defined(__APPLE__)
+    copy_build_id_to_sha1(instance->driver_build_sha, note);
++#endif
+ 
+    *pInstance = panvk_instance_to_handle(instance);
+ 
