@@ -109,7 +109,7 @@ index a5a364e..55617dc 100644
     if (drm_device == NULL || drm_device->nodes[DRM_NODE_RENDER] == NULL)
        return VK_ERROR_INCOMPATIBLE_DRIVER;
  
-@@ -160,7 +164,7 @@ create_kmod_dev(struct panvk_physical_device *device,
+@@ -160,7 +164,8 @@ create_kmod_dev(struct panvk_physical_device *device,
     }
  
     return VK_SUCCESS;
@@ -137,7 +137,7 @@ index a5a364e..55617dc 100644
     if (drm_device == NULL || drm_device->nodes[DRM_NODE_RENDER] == NULL)
        return VK_ERROR_INCOMPATIBLE_DRIVER;
  
-@@ -195,7 +204,7 @@ get_drm_device_ids(struct panvk_physical_device *device,
+@@ -195,7 +204,8 @@ get_drm_device_ids(struct panvk_physical_device *device,
     }
  
     return VK_SUCCESS;
