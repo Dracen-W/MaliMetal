@@ -1,0 +1,19 @@
+# MaliMetal patch 0014: use WSI headers, not the omitted WSI target.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0013.
+#
+# 0013 omits the WSI subdirectory in native builds. Its header dependency is
+# still needed by PanVK, but the WSI implementation target no longer exists.
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -237,7 +237,7 @@ libvulkan_panfrost = shared_library(
+     panvk_deps,
+     idep_vulkan_util,
+     idep_vulkan_runtime,
+-    idep_vulkan_wsi,
++    idep_vulkan_wsi_headers,
+     idep_mesautil,
+   ],
+   c_args : [no_override_init_args, panvk_flags, soong_compat_c_args],
