@@ -1,0 +1,22 @@
+# MaliMetal patch 0018: skip Panfrost perf in the native target.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Depends on 0001-0017.
+#
+# Panfrost perf is a DRM-only optional tool and includes xf86drm.h. The host
+# Mesa tools needed by the cross build do not use it, so do not configure it in
+# the native configuration.
+diff --git a/src/panfrost/meson.build b/src/panfrost/meson.build
+--- a/src/panfrost/meson.build
++++ b/src/panfrost/meson.build
+@@ -46,7 +46,9 @@ endif
+ 
+ if with_gallium_panfrost or with_panfrost_vk
+    subdir('libpan')
+-   subdir('perf')
++   if not get_option('panfrost-native-only')
++      subdir('perf')
++   endif
+ endif
+ 
+ files_bifrost = files(
