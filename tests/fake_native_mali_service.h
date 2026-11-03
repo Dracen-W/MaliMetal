@@ -198,6 +198,14 @@ private:
         /* Mali-G52 product 0x7002, revision 0x1000 (Mali-G52 docs/DEVICE.md,
          * the register-LUT line from the vendor boot log). */
         reply->gpu_id = 0x70021000;
+        reply->shader_present_lo = 0x1f;
+        reply->tiler_present_lo = 0x3;
+        reply->thread_max_threads = 0x100;
+        reply->max_workgroup_size = 0x200;
+        reply->max_barrier_size = 0x300;
+        reply->l2_features = 0x11;
+        reply->core_features = 0x22;
+        reply->tiler_features = 0x33;
         reply->flags = NativeMaliDeviceNonCoherent;
         reply->va_start = 0;
         reply->va_size = UINT64_C(1) << 48;
