@@ -13,7 +13,7 @@ jobs:
         run: |
           brew install meson ninja llvm pkg-config
           python3 -m venv "$RUNNER_TEMP/pyvenv"
-          "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml
+          "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
 
       - name: Clone Mason at the pinned tag
