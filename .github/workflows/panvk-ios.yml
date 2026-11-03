@@ -50,12 +50,14 @@ jobs:
         run: |
           set -eu
           sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          clang=$(xcrun --sdk iphoneos --find clang)
+          clangxx=$(xcrun --sdk iphoneos --find clang++)
           cat > ios.ini <<EOF
           [binaries]
-          c = ['xcrun', '--sdk', 'iphoneos', 'clang']
-          cpp = ['xcrun', '--sdk', 'iphoneos', 'clang++']
-          ar = ['xcrun', '--sdk', 'iphoneos', 'ar']
-          strip = ['xcrun', '--sdk', 'iphoneos', 'strip']
+          c = ['$clang']
+          cpp = ['$clangxx']
+          ar = ['$(xcrun --sdk iphoneos --find ar)']
+          strip = ['$(xcrun --sdk iphoneos --find strip)']
           [host_machine]
           system = 'darwin'
           subsystem = 'ios'
