@@ -66,11 +66,10 @@ jobs:
         run: |
           set -eu
           mkdir -p build
-          c++ -std=c++17 -Wall -Wextra -Werror \
+          c++ -std=c++17 -Wall -Wextra -Werror -dynamiclib \
             -DMALIMETAL_TESTING -DMALIMETAL_TEST_NO_DEFAULT \
             -Ibuild/abi -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport -Itests \
-            -I/opt/homebrew/include \
-            tests/panvk_smoke.cpp \
+            tests/panvk_fake_facade.cpp \
             src/backend/native_mali_kmod.cpp \
             src/native_mali/NativeMaliAbiTable.cpp \
             src/native_mali/NativeMaliClient.cpp \
@@ -79,9 +78,13 @@ jobs:
             src/native_mali/NativeMaliIovaAllocator.cpp \
             src/native_mali/NativeMaliFenceTracker.cpp \
             src/native_mali/NativeMaliDevice.cpp \
-            -Wl,-export_dynamic -framework IOKit -framework CoreFoundation \
+            -framework IOKit -framework CoreFoundation \
+            -o build/libnative_mali_fake.dylib
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            -I/opt/homebrew/include tests/panvk_smoke.cpp \
             -o build/panvk_smoke
-          build/panvk_smoke mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          build/panvk_smoke build/libnative_mali_fake.dylib \
+            mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
 
       - name: Upload macOS canary
         uses: actions/upload-artifact@v4

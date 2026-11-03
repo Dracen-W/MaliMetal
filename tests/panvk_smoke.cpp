@@ -3,15 +3,11 @@
  * Host smoke test for the PanVK dylib against the NativeMali fake service.
  *
  * The dylib is built with its NativeMali facade calls left as weak imports.
- * This executable supplies the facade (native_mali_kmod.cpp) and the scripted
- * service, then loads the dylib with dlopen. A physical device proves that the
- * weak import crossed the image boundary and that instance enumeration reached
- * the fake service; it does not touch a GPU.
+ * This executable loads a separate facade dylib (facade + scripted service)
+ * with RTLD_GLOBAL, then loads PanVK. A physical device proves that the weak
+ * import crossed the image boundary and that enumeration reached the fake
+ * service; it does not touch a GPU.
  */
-#include "native_mali_kmod.h"
-
-#include "fake_native_mali_service.h"
-
 #include <vulkan/vulkan.h>
 
 #include <dlfcn.h>
@@ -19,28 +15,9 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace {
-
-FakeNativeMaliService *g_service;
-
-int trampoline(void *context, uint32_t selector, const void *input, size_t input_bytes,
-               void *output, size_t output_bytes) {
-    return static_cast<FakeNativeMaliService *>(context)->call(
-        selector, input, input_bytes, output, output_bytes);
-}
-
-} /* namespace */
-
-extern "C" NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
-    NativeMaliTransportCallbacks callbacks{};
-    callbacks.call = trampoline;
-    callbacks.context = g_service;
-    return native_mali_kmod_create(&callbacks, error);
-}
-
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        std::fprintf(stderr, "usage: %s /path/to/libvulkan_panfrost.dylib\n", argv[0]);
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s facade.dylib libvulkan_panfrost.dylib\n", argv[0]);
         return 2;
     }
 
@@ -49,12 +26,16 @@ int main(int argc, char **argv) {
     setenv("MESA_LOG_LEVEL", "debug", 1);
     setenv("PANVK_DEBUG", "1", 1);
 
-    FakeNativeMaliService service;
-    g_service = &service;
+    void *facade = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
+    if (facade == nullptr) {
+        std::fprintf(stderr, "dlopen facade: %s\n", dlerror());
+        return 1;
+    }
 
-    void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+    void *lib = dlopen(argv[2], RTLD_NOW | RTLD_LOCAL);
     if (lib == nullptr) {
         std::fprintf(stderr, "dlopen: %s\n", dlerror());
+        dlclose(facade);
         return 1;
     }
 
@@ -63,6 +44,7 @@ int main(int argc, char **argv) {
     if (get_proc == nullptr) {
         std::fprintf(stderr, "dlsym vk_icdGetInstanceProcAddr: %s\n", dlerror());
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -71,6 +53,7 @@ int main(int argc, char **argv) {
     if (create_instance == nullptr) {
         std::fprintf(stderr, "vkCreateInstance is missing\n");
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -91,6 +74,7 @@ int main(int argc, char **argv) {
     if (result != VK_SUCCESS) {
         std::fprintf(stderr, "vkCreateInstance: %d\n", result);
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -102,8 +86,10 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, "instance entry points are missing (enumerate=%p, destroy=%p)\n",
                      reinterpret_cast<void *>(enumerate),
                      reinterpret_cast<void *>(destroy_instance));
-        destroy_instance(instance, nullptr);
+        if (destroy_instance != nullptr)
+            destroy_instance(instance, nullptr);
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -113,6 +99,7 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, "vkEnumeratePhysicalDevices: result %d, count %u\n", result, count);
         destroy_instance(instance, nullptr);
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -122,6 +109,7 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, "vkEnumeratePhysicalDevices(device): result %d\n", result);
         destroy_instance(instance, nullptr);
         dlclose(lib);
+        dlclose(facade);
         return 1;
     }
 
@@ -136,5 +124,6 @@ int main(int argc, char **argv) {
 
     destroy_instance(instance, nullptr);
     dlclose(lib);
+    dlclose(facade);
     return 0;
 }
