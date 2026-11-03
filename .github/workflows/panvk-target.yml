@@ -38,6 +38,7 @@ jobs:
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
             -Dplatforms= \
             -Dzstd=disabled \
+            -Dshader-cache=disabled \
             -Dmicrosoft-clc=disabled \
             -Dpanfrost-native-only=true \
             -Dc_args=-I${{ github.workspace }}/src/backend \
@@ -87,6 +88,7 @@ jobs:
             -Dglx=disabled -Degl=disabled -Dgbm=disabled \
             -Dplatforms= \
             -Dzstd=disabled \
+            -Dshader-cache=disabled \
             -Dmicrosoft-clc=disabled \
             -Dpanfrost-native-only=true \
             -Dc_args=-I${{ github.workspace }}/src/backend \
