@@ -114,7 +114,8 @@ index a5a364e..55617dc 100644
  
     return VK_SUCCESS;
 -}
-+}#endif
++}
++#endif
  
  static VkResult
  get_drm_device_ids(struct panvk_physical_device *device,
@@ -141,7 +142,8 @@ index a5a364e..55617dc 100644
  
     return VK_SUCCESS;
 -}
-+}#endif
++}
++#endif
  
  static void
  init_shader_caches(struct panvk_physical_device *device,
