@@ -72,7 +72,7 @@ private:
     NativeMaliTransportCallbacks callbacks_;
 };
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(MALIMETAL_TEST_NO_DEFAULT)
 int IokitTransportCall(void *context, uint32_t selector, const void *input,
                        size_t input_bytes, void *output, size_t output_bytes) {
     io_connect_t connection = static_cast<io_connect_t>(reinterpret_cast<uintptr_t>(context));

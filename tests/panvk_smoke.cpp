@@ -75,14 +75,16 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+    VkApplicationInfo app{};
+    app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app.pApplicationName = "panvk-smoke";
     app.applicationVersion = 1;
     app.pEngineName = "MaliMetal";
     app.engineVersion = 1;
     app.apiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
 
-    VkInstanceCreateInfo info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+    VkInstanceCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     info.pApplicationInfo = &app;
 
     VkInstance instance = VK_NULL_HANDLE;
