@@ -112,7 +112,8 @@ Mesa PanVK supplies:
 - format, tiling, AFBC and sampler tables;
 - the Vulkan feature set that the Metal frontend answers from.
 
-The device is `gpu_id 0x70021000` (product `0x7002`, revision `0x1000`, r1p0),
+The device is `gpu_id 0x74021000` (product `0x7402` = Mesa's "G52 r1", revision
+`0x1000`, r1p0; confirm against Mali-G52 `docs/DEVICE.md`),
 which is `pan_arch == 7`. PanVK's own physical-device init currently refuses
 v6/v7/v14 unless `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1` is set
 (`src/panfrost/vulkan/panvk_physical_device.c:panvk_physical_device_init()`).

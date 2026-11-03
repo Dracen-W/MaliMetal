@@ -195,9 +195,16 @@ private:
 
     int device_info(NativeMaliAbiDeviceInfo *reply) {
         *reply = NativeMaliAbiDeviceInfo{};
-        /* Mali-G52 product 0x7002, revision 0x1000 (Mali-G52 docs/DEVICE.md,
-         * the register-LUT line from the vendor boot log). */
-        reply->gpu_id = 0x70021000;
+        /* Mali-G52 r1 (product 0x7402), revision 0x1000 = r1p0.
+         *
+         * Mesa's pan_get_model() decodes gpu_id as
+         * PAN_PROD_ID(arch_major = bits 31:28, arch_minor = bits 27:24,
+         * product_major = bits 19:16). 0x74021000 -> (7,4,2) = "G52 r1".
+         * The earlier 0x70021000 decodes to (7,0,2), which has no model entry,
+         * so panvk_physical_device_init() fails with "Unknown gpu_id" and the
+         * instance enumerates zero devices. Confirm the measured value against
+         * Mali-G52 docs/DEVICE.md. */
+        reply->gpu_id = 0x74021000;
         reply->shader_present_lo = 0x1f;
         reply->tiler_present_lo = 0x3;
         reply->thread_max_threads = 0x100;

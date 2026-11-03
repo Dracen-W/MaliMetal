@@ -52,7 +52,7 @@ int main() {
 
     const NativeMaliDeviceProps *props = native_mali_kmod_props(kmod);
     expect(props != nullptr, "props available");
-    expect(props->gpu_id == 0x70021000, "GPU id from GetDeviceInfo");
+    expect(props->gpu_id == 0x74021000, "GPU id from GetDeviceInfo");
     expect(props->non_coherent == 1, "non-coherent flag surfaced");
     expect(props->max_bo_bytes == (UINT64_C(1) << NativeMaliAbiMaxBoBytesShift), "BO limit");
     expect(props->va_size == (UINT64_C(1) << 48), "VA size from the device");
