@@ -11,7 +11,7 @@
 diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
 --- a/src/panfrost/vulkan/meson.build
 +++ b/src/panfrost/vulkan/meson.build
-@@ -214,10 +214,11 @@ libvulkan_panfrost = shared_library(
+@@ -214,8 +214,8 @@ libvulkan_panfrost = shared_library(
    ],
 -  link_whole : [panvk_per_arch_libs],
 +  link_whole : [panvk_per_arch_libs] + (get_option('panfrost-native-only') ?
