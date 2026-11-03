@@ -43,11 +43,13 @@ jobs:
             -Dpanfrost-native-only=true \
             -Dc_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv' \
             -Dcpp_args='-I${{ github.workspace }}/src/backend -Dsecure_getenv=getenv'
-          ninja -C mesa/build-host -j2 src/compiler/clc/mesa_clc src/panfrost/clc/panfrost_compile
+          ninja -C mesa/build-host -j2 src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/panfrost/clc/panfrost_compile
           mkdir -p mesa-host/bin
           cp mesa/build-host/src/compiler/clc/mesa_clc mesa-host/bin/
+          cp mesa/build-host/src/compiler/spirv/vtn_bindgen2 mesa-host/bin/
           cp mesa/build-host/src/panfrost/clc/panfrost_compile mesa-host/bin/
           test -x mesa-host/bin/mesa_clc
+          test -x mesa-host/bin/vtn_bindgen2
           test -x mesa-host/bin/panfrost_compile
 
       - name: Cross-build PanVK for iOS
