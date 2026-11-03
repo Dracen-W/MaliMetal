@@ -118,3 +118,86 @@ jobs:
             artifacts.sha256
           if-no-files-found: error
           retention-days: 7
+  ios-target:
+    runs-on: macos-14
+    needs: macos-target
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install iOS build tools
+        run: |
+          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools libclc
+          python3 -m venv "$RUNNER_TEMP/pyvenv"
+          "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
+          echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
+
+      - name: Clone Mesa at the pinned tag
+        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: Apply the patch series
+        run: |
+          set -eu
+          for patch in patches/mesa/*.patch; do
+            echo "applying $patch"
+            git -C mesa apply "../$patch"
+          done
+
+      - name: Build host Mesa tools
+        env:
+          LLVM_CONFIG: /opt/homebrew/opt/llvm/bin/llvm-config
+        run: |
+          set -eu
+          meson setup mesa/build-host mesa             -Dvulkan-drivers=panfrost             -Dgallium-drivers=             -Dglx=disabled -Degl=disabled -Dgbm=disabled             -Dplatforms= -Dzstd=disabled             -Dxmlconfig=disabled -Dexpat=disabled -Dshader-cache=disabled             -Dllvm=enabled -Dmesa-clc=enabled -Dinstall-mesa-clc=true             -Dprecomp-compiler=enabled -Dinstall-precomp-compiler=true             -Dbuild-tests=false             -Dc_args='-Dsecure_getenv=getenv'             -Dcpp_args='-Dsecure_getenv=getenv'
+          ninja -C mesa/build-host -j2 install
+          test -x mesa-host/bin/mesa_clc
+
+      - name: Cross-build PanVK for iOS
+        run: |
+          set -eu
+          sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          cat > ios.ini <<EOF
+          [binaries]
+          c = ['xcrun', '--sdk', 'iphoneos', 'clang']
+          cpp = ['xcrun', '--sdk', 'iphoneos', 'clang++']
+          ar = ['xcrun', '--sdk', 'iphoneos', 'ar']
+          strip = ['xcrun', '--sdk', 'iphoneos', 'strip']
+          [host_machine]
+          system = 'darwin'
+          subsystem = 'ios'
+          cpu_family = 'aarch64'
+          cpu = 'arm64'
+          endian = 'little'
+          [built-in options]
+          c_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk', '-I${{ github.workspace }}/src/backend', '-Dsecure_getenv=getenv']
+          cpp_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk', '-I${{ github.workspace }}/src/backend', '-Dsecure_getenv=getenv']
+          c_link_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk']
+          cpp_link_args = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', '$sdk']
+          EOF
+          export PATH="$PWD/mesa-host/bin:$PATH"
+          unset PKG_CONFIG_PATH PKG_CONFIG_LIBDIR
+          meson setup mesa/build-ios mesa --cross-file ios.ini             -Dvulkan-drivers=panfrost -Dgallium-drivers=             -Dglx=disabled -Degl=disabled -Dgbm=disabled -Dplatforms=             -Dzstd=disabled -Dxmlconfig=disabled -Dexpat=disabled -Dshader-cache=disabled             -Dllvm=disabled -Dmesa-clc=system -Dprecomp-compiler=system             -Dvulkan-layers= -Dvideo-codecs= -Dbuild-tests=false             -Dpanfrost-native-only=true
+          export CCC_OVERRIDE_OPTIONS='# +-Wl,-undefined,dynamic_lookup'
+          ninja -C mesa/build-ios src/panfrost/vulkan/libvulkan_panfrost.dylib
+          dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          python3 tools/fix-weak-imports.py "$dylib"
+          codesign --force --sign - --pagesize 4096 "$dylib"
+
+      - name: Package iOS addon
+        run: |
+          dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          test -f "$dylib"
+          python3 tools/make-mali-gpu-addon.py --dylib "$dylib" --publish --output mali-gpu.addon
+          shasum -a 256 "$dylib" mali-gpu.addon > artifacts.sha256
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mali-target-ios
+          path: |
+            mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
+            mali-gpu.addon
+            artifacts.sha256
+          if-no-files-found: error
+          retention-days: 7
+
