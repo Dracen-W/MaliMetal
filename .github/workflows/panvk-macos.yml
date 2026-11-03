@@ -9,6 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out Mali-G52 (canonical NativeMaliABI.h)
+        uses: actions/checkout@v4
+        with:
+          repository: Dracen-W/Mali-G52
+          path: .kernel
+
+      - name: Generate the pinned ABI header
+        run: python3 tools/sync-abi.py --kernel .kernel
+
       - name: Install build tools
         run: |
           brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools vulkan-headers
@@ -59,7 +68,7 @@ jobs:
           mkdir -p build
           c++ -std=c++17 -Wall -Wextra -Werror \
             -DMALIMETAL_TESTING -DMALIMETAL_TEST_NO_DEFAULT \
-            -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport -Itests \
+            -Ibuild/abi -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport -Itests \
             -I/opt/homebrew/include \
             tests/panvk_smoke.cpp \
             src/backend/native_mali_kmod.cpp \
