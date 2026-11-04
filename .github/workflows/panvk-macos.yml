@@ -66,7 +66,7 @@ jobs:
         run: |
           set -eu
           mkdir -p build
-          c++ -std=c++17 -Wall -Wextra -Werror -dynamiclib \
+          c++ -std=c++17 -g -Wall -Wextra -Werror -dynamiclib \
             -DMALIMETAL_TESTING -DMALIMETAL_TEST_NO_DEFAULT \
             -Ibuild/abi -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport -Itests \
             tests/panvk_fake_facade.cpp \
@@ -80,11 +80,20 @@ jobs:
             src/native_mali/NativeMaliDevice.cpp \
             -framework IOKit -framework CoreFoundation \
             -o build/libnative_mali_fake.dylib
-          c++ -std=c++17 -Wall -Wextra -Werror \
+          c++ -std=c++17 -g -Wall -Wextra -Werror \
             -I/opt/homebrew/include tests/panvk_smoke.cpp \
             -o build/panvk_smoke
+          set +e
           build/panvk_smoke build/libnative_mali_fake.dylib \
             mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            lldb --batch -o run -o "thread backtrace all" -o quit -- \
+              build/panvk_smoke build/libnative_mali_fake.dylib \
+              mesa/build-macos/src/panfrost/vulkan/libvulkan_panfrost.dylib || true
+          fi
+          exit "$status"
 
       - name: Upload macOS canary
         uses: actions/upload-artifact@v4
