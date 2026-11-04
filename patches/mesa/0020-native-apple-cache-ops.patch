@@ -1,0 +1,64 @@
+# MaliMetal patch 0020: Darwin EL0 cannot read CTR_EL0 or run DC ops.
+#
+# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+#
+# vk_physical_device_init() queries util_cache_granularity(), which executes
+# MRS CTR_EL0; macOS traps it and the smoke test died with SIGILL before the
+# physical device was returned.  Darwin also does not allow DC CVAC/CIVAC from
+# EL0.  Use the fixed Apple line encoding and leave data-cache ownership to the
+# NativeMali service/IOMMU.
+--- a/src/util/cache_ops_aarch64.c	2026-11-04 00:28:39.863634671 +0000
++++ b/src/util/cache_ops_aarch64.c	2026-11-04 00:28:38.872634713 +0000
+@@ -29,9 +29,16 @@
+ static uint32_t
+ get_ctr_el0(void)
+ {
++#if defined(__APPLE__)
++   /* Darwin traps MRS CTR_EL0 from EL0.  Apple arm64 uses 128-byte cache
++    * lines (DminLine/CWG = 5); use that encoding instead of reading the
++    * inaccessible register. */
++   return (5u << 24) | (5u << 16);
++#else
+    uint32_t ctr_el0;
+    __asm("mrs\t%x0, ctr_el0" : "=r"(ctr_el0));
+    return ctr_el0;
++#endif
+ }
+ 
+ static uint32_t
+@@ -95,21 +102,35 @@
+ static void
+ flush_l1_cacheline(UNUSED void *p)
+ {
++#if defined(__APPLE__)
++   /* DC CVAC is not available to Darwin EL0.  The service/IOMMU owns the
++    * cache maintenance for these mappings. */
++   (void)p;
++#else
+    /* Clean data cache. */
+    __asm volatile("dc cvac, %0" : : "r" (p) : "memory");
++#endif
+ }
+ 
+ static void
+ flush_inval_l1_cacheline(UNUSED void *p)
+ {
++#if defined(__APPLE__)
++   (void)p;
++#else
+    /* Clean and Invalidate data cache, there is no separate Invalidate. */
+    __asm volatile("dc civac, %0" : : "r" (p) : "memory");
++#endif
+ }
+ 
+ static void
+ data_sync_bar(void)
+ {
++#if defined(__APPLE__)
++   __sync_synchronize();
++#else
+    __asm volatile("dsb sy");
++#endif
+ }
+ 
+ void
