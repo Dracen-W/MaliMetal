@@ -16,11 +16,18 @@ def pad(data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dylib', type=Path, required=True)
+    parser.add_argument('--facade', type=Path)
+    parser.add_argument('--smoke', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--publish', action='store_true')
     args = parser.parse_args()
     if not args.dylib.is_file():
         raise SystemExit(f'missing dylib: {args.dylib}')
+    if bool(args.facade) != bool(args.smoke):
+        raise SystemExit('--facade and --smoke must be given together')
+    for name, path in (('facade', args.facade), ('smoke', args.smoke)):
+        if path is not None and not path.is_file():
+            raise SystemExit(f'missing {name}: {path}')
     bundle = 'addons/NativeMaliMetal.bundle'
     icd = {
         'file_format_version': '1.0.0',
@@ -40,6 +47,33 @@ def main():
         (f'{bundle}/panfrost_icd.json', 0o644, json.dumps(icd).encode()),
         (f'{bundle}/Info.plist', 0o644, plistlib.dumps(info)),
     ]
+    if args.facade:
+        files.append((f'{bundle}/libnative_mali_facade.dylib', 0o755,
+                      args.facade.read_bytes()))
+    if args.smoke:
+        files.append(('bin/panvk_smoke', 0o755, args.smoke.read_bytes()))
+        # launchd may not enumerate a new filename through the boot-time union
+        # mount, so use the existing non-essential FDR loader slot while this is
+        # only a diagnostic. MM5 replaces it with the real plugin job.
+        daemon = {
+            'Label': 'com.apple.iomfb_fdr_loader',
+            'ProgramArguments': [
+                '/private/var/ngpu/bin/panvk_smoke',
+                f'/private/var/ngpu/{bundle}/libnative_mali_facade.dylib',
+                f'/private/var/ngpu/{bundle}/libvulkan_panfrost.dylib',
+            ],
+            'EnvironmentVariables': {'PANVK_SMOKE_WAIT_SECONDS': '180'},
+            'RunAtLoad': True,
+            'KeepAlive': False,
+            'LimitLoadToSessionType': 'System',
+            'ProcessType': 'Interactive',
+            'ThrottleInterval': 30,
+            'UserName': 'root',
+            'StandardOutPath': '/private/var/ngpu/panvk-smoke.log',
+            'StandardErrorPath': '/private/var/ngpu/panvk-smoke.log',
+        }
+        files.append(('daemons/com.apple.iomfb_fdr_loader.plist', 0o644,
+                      plistlib.dumps(daemon)))
     if args.publish:
         files.append(('addons/NativeMaliMetal.publish', 0o644, b'1\n'))
     body = b''

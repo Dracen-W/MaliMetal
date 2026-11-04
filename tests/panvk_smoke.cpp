@@ -21,6 +21,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
+
+#include <unistd.h>
 
 namespace {
 
@@ -165,7 +168,21 @@ int main(int argc, char **argv) {
     }
 
     uint32_t count = 0;
-    result = enumerate(s.instance, &count, nullptr);
+    unsigned wait_seconds = 0;
+    if (const char *wait = std::getenv("PANVK_SMOKE_WAIT_SECONDS"))
+        wait_seconds = static_cast<unsigned>(std::strtoul(wait, nullptr, 10));
+    const std::time_t deadline = std::time(nullptr) + wait_seconds;
+
+    /* The service is published a few seconds into boot on the phone, after the
+     * GPU is powered. The host canary leaves this at zero. */
+    for (;;) {
+        count = 0;
+        result = enumerate(s.instance, &count, nullptr);
+        if ((result == VK_SUCCESS && count > 0) || std::time(nullptr) >= deadline)
+            break;
+        std::fprintf(stderr, "panvk smoke: no physical device yet, retrying\n");
+        sleep(1);
+    }
     if (result != VK_SUCCESS || count == 0) {
         std::fprintf(stderr,
                      "vkEnumeratePhysicalDevices: result %d, count %u\n"

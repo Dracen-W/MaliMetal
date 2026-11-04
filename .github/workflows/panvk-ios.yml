@@ -9,9 +9,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out Mali-G52 (canonical NativeMaliABI.h)
+        uses: actions/checkout@v4
+        with:
+          repository: Dracen-W/Mali-G52
+          path: .kernel
+
+      - name: Generate the pinned ABI header
+        run: python3 tools/sync-abi.py --kernel .kernel
+
       - name: Install build tools
         run: |
-          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools libclc
+          brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools libclc vulkan-headers
           python3 -m venv "$RUNNER_TEMP/pyvenv"
           "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
@@ -94,13 +103,73 @@ jobs:
           python3 tools/fix-weak-imports.py "$dylib"
           codesign --force --sign - --pagesize 4096 "$dylib"
 
+      - name: Build and sign the target smoke process
+        run: |
+          set -eu
+          sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          clangxx=$(xcrun --sdk iphoneos --find clang++)
+          "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
+            -std=c++17 -O2 -g -Wall -Wextra -Werror \
+            -Ibuild/abi -Isrc -Isrc/backend -Isrc/native_mali -Isrc/transport \
+            -dynamiclib \
+            src/backend/native_mali_kmod.cpp \
+            src/native_mali/NativeMaliAbiTable.cpp \
+            src/native_mali/NativeMaliClient.cpp \
+            src/native_mali/NativeMaliError.cpp \
+            src/native_mali/NativeMaliBoTable.cpp \
+            src/native_mali/NativeMaliIovaAllocator.cpp \
+            src/native_mali/NativeMaliFenceTracker.cpp \
+            src/native_mali/NativeMaliDevice.cpp \
+            -framework IOKit -framework CoreFoundation \
+            -o build/libnative_mali_facade.dylib
+          "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
+            -std=c++17 -O2 -g -Wall -Wextra -Werror \
+            -I/opt/homebrew/include tests/panvk_smoke.cpp -o build/panvk_smoke
+          cat > build/panvk-smoke-entitlements.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.private.security.no-container</key><true/>
+            <key>com.apple.security.iokit-user-client-class</key>
+            <array><string>NativeMaliGpuClient</string></array>
+          </dict>
+          </plist>
+          EOF
+          codesign --force --sign - --pagesize 4096 --identifier org.dracen.native-mali-facade \
+            build/libnative_mali_facade.dylib
+          codesign --force --sign - --pagesize 4096 --identifier org.dracen.panvk-smoke \
+            --entitlements build/panvk-smoke-entitlements.plist build/panvk_smoke
+          codesign --verify --strict build/libnative_mali_facade.dylib
+          codesign --verify --strict build/panvk_smoke
+
       - name: Package iOS addon
         run: |
           set -eu
           dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
           test -f "$dylib"
-          python3 tools/make-mali-gpu-addon.py --dylib "$dylib" --publish --output mali-gpu.addon
-          shasum -a 256 "$dylib" mali-gpu.addon > artifacts.sha256
+          test -f build/libnative_mali_facade.dylib
+          test -f build/panvk_smoke
+          python3 tools/make-mali-gpu-addon.py --dylib "$dylib" \
+            --facade build/libnative_mali_facade.dylib --smoke build/panvk_smoke \
+            --output mali-gpu.addon
+          python3 - <<'PY'
+          import json
+          import re
+          import subprocess
+          paths = {
+              'panvk_smoke': 'build/panvk_smoke',
+              'facade': 'build/libnative_mali_facade.dylib',
+              'panvk': 'mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib',
+          }
+          hashes = {}
+          for name, path in paths.items():
+              detail = subprocess.run(['codesign', '--display', '--verbose=4', path],
+                                      check=True, capture_output=True, text=True).stderr
+              hashes[name] = re.search(r'^CDHash=([a-f0-9]{40})$', detail, re.M)[1]
+          json.dump(hashes, open('target-trust.json', 'w'), indent=2)
+          PY
+          shasum -a 256 "$dylib" build/libnative_mali_facade.dylib build/panvk_smoke mali-gpu.addon > artifacts.sha256
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
@@ -108,7 +177,10 @@ jobs:
           name: mali-target-ios
           path: |
             mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
+            build/libnative_mali_facade.dylib
+            build/panvk_smoke
             mali-gpu.addon
+            target-trust.json
             artifacts.sha256
           if-no-files-found: error
           retention-days: 7
