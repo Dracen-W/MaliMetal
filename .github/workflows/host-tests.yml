@@ -67,7 +67,7 @@ jobs:
   # as a static library. This is the check that would have caught the wrong
   # metal2vulkan pin.
   bridge:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
