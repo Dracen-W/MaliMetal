@@ -346,7 +346,7 @@ NativeMaliResult native_mali_kmod_cpu_map_address(NativeMaliKmod *kmod, uint64_t
     mach_vm_size_t mapped_bytes = 0;
     const kern_return_t kr = IOConnectMapMemory64(
         static_cast<io_connect_t>(kmod->connection), local_token, mach_task_self(),
-        &mapped, &mapped_bytes, kIOMapAnywhere | kIOMapDefaultCache);
+        &mapped, &mapped_bytes, kIOMapAnywhere | kIOMapWriteCombineCache);
     if (kr != KERN_SUCCESS) {
         (void)kmod->device.cpu_unmap(handle, local_token);
         return NATIVE_MALI_RESULT_IO_ERROR;

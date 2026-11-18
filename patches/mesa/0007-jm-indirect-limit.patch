@@ -24,7 +24,7 @@ diff --git a/src/panfrost/vulkan/panvk_device.h b/src/panfrost/vulkan/panvk_devi
   */
  
 -#define PANVK_JM_MAX_VERTICES_INDIRECT                (2000000)
-+#define PANVK_JM_MAX_VERTICES_INDIRECT                (1500000)
++#define PANVK_JM_MAX_VERTICES_INDIRECT                (65536)
  #define PANVK_JM_MAX_PER_VTX_ATTRIBUTES_INDIRECT_SIZE (18 * 4)
  
  struct panvk_precomp_cache;

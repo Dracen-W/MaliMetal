@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--facade', type=Path)
     parser.add_argument('--smoke', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--plugin', type=Path)
     parser.add_argument('--publish', action='store_true')
     args = parser.parse_args()
     if not args.dylib.is_file():
@@ -39,8 +40,12 @@ def main():
     info = {
         'CFBundleIdentifier': 'org.dracen.NativeMaliMetal',
         'CFBundleName': 'NativeMaliMetal',
+        'CFBundleExecutable': 'NativeMaliMetal',
         'CFBundlePackageType': 'BNDL',
         'CFBundleVersion': '0.1.0',
+        'CFBundleShortVersionString': '0.1.0',
+        'NSPrincipalClass': 'NativeMaliMetalDevice',
+        'MinimumOSVersion': '17.0',
     }
     files = [
         (f'{bundle}/libvulkan_panfrost.dylib', 0o755, args.dylib.read_bytes()),
@@ -74,8 +79,11 @@ def main():
         }
         files.append(('daemons/com.apple.iomfb_fdr_loader.plist', 0o644,
                       plistlib.dumps(daemon)))
+    if args.plugin and args.plugin.is_file():
+        files.append((f'{bundle}/NativeMaliMetal', 0o755, args.plugin.read_bytes()))
     if args.publish:
         files.append(('addons/NativeMaliMetal.publish', 0o644, b'1\n'))
+        files.append(('addons/NativeMaliMetal.clients', 0o644, b'*\n'))
     body = b''
     for name, mode, data in files:
         encoded = name.encode() + b'\0'

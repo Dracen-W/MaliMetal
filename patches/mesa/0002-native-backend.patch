@@ -113,8 +113,7 @@ index 0000000..44c3210
 +native_mali_bo_alloc(struct pan_kmod_dev *dev, struct pan_kmod_vm *exclusive_vm,
 +                     uint64_t size, uint32_t flags)
 +{
-+   const uint32_t unsupported = PAN_KMOD_BO_FLAG_WB_MMAP |
-+                                PAN_KMOD_BO_FLAG_IMPORTED |
++   const uint32_t unsupported = PAN_KMOD_BO_FLAG_IMPORTED |
 +                                PAN_KMOD_BO_FLAG_EXPORTED;
 +
 +   if (flags & unsupported) {
@@ -437,7 +436,8 @@ index 0000000..44c3210
 +   p->afbc_features = src->afbc_features;
 +   p->pgsize_bitmap = PAN_PGSIZE_4K;
 +   p->supported_bo_flags = PAN_KMOD_BO_FLAG_EXECUTABLE |
-+                           PAN_KMOD_BO_FLAG_NO_MMAP;
++                           PAN_KMOD_BO_FLAG_NO_MMAP |
++                           PAN_KMOD_BO_FLAG_WB_MMAP;
 +   p->supported_vm_op_flags = 0;
 +   p->is_io_coherent = false;
 +
