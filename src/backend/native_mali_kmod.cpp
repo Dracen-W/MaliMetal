@@ -228,6 +228,14 @@ NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
 
     io_service_t service = IOServiceGetMatchingService(
         kIOMainPortDefault, IOServiceMatching("NativeMaliGpuService"));
+    if (service == IO_OBJECT_NULL) {
+        service = IOServiceGetMatchingService(
+            kIOMainPortDefault, IOServiceNameMatching("NativeMaliGpuService"));
+    }
+    if (service == IO_OBJECT_NULL) {
+        service = IOServiceGetMatchingService(
+            kIOMainPortDefault, IOServiceMatching("IOAcceleratorES"));
+    }
     if (service == IO_OBJECT_NULL)
         return nullptr;
 

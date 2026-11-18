@@ -21,10 +21,20 @@ jobs:
       - name: Install build tools
         run: |
           brew install meson ninja llvm pkg-config spirv-llvm-translator spirv-tools libclc vulkan-headers
+          rustup target add aarch64-apple-ios
           python3 -m venv "$RUNNER_TEMP/pyvenv"
           "$RUNNER_TEMP/pyvenv/bin/pip" install mako pyyaml packaging
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
           echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch and build the Rust Metal-to-Vulkan bridge for iOS
+        env:
+          LLVM_AS: /opt/homebrew/opt/llvm/bin/llvm-as
+        run: |
+          set -eu
+          python3 tools/deps.py fetch --dest .deps --id metal2vulkan --id adrenometal
+          python3 tools/deps.py verify --checkout metal2vulkan=.deps/metal2vulkan --checkout adrenometal=.deps/adrenometal
+          METAL2VULKAN_DIR="$PWD/.deps/metal2vulkan" ADRENOMETAL_DIR="$PWD/.deps/adrenometal" tools/build-bridge-ios.sh
 
       - name: Clone Mesa at the pinned tag
         run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
@@ -103,7 +113,7 @@ jobs:
           python3 tools/fix-weak-imports.py "$dylib"
           codesign --force --sign - --pagesize 4096 "$dylib"
 
-      - name: Build and sign the target smoke process
+      - name: Build and sign NativeMaliMetal bundle, facade, and smoke process
         run: |
           set -eu
           sdk=$(xcrun --sdk iphoneos --show-sdk-path)
@@ -124,6 +134,16 @@ jobs:
             -o build/libnative_mali_facade.dylib
           "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
             -std=c++17 -O2 -g -Wall -Wextra -Werror \
+            -fobjc-arc -Wno-deprecated-declarations -bundle \
+            -Ibuild/abi -Isrc -Isrc/bridge -Isrc/frontend -Isrc/plugin -I/opt/homebrew/include \
+            -x objective-c++ src/plugin/NativeMaliMetalPlugin.mm src/frontend/NativeBridgeMetalFrontend.mm \
+            -x c++ src/plugin/NativeMaliPublish.cpp \
+            -x none build/libmali_metal_bridge.a \
+            -Wl,-dead_strip -lobjc -framework Foundation -framework Metal -framework IOSurface -framework IOKit \
+            -o build/NativeMaliMetal
+          strip -x build/NativeMaliMetal
+          "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
+            -std=c++17 -O2 -g -Wall -Wextra -Werror \
             -I/opt/homebrew/include tests/panvk_smoke.cpp -o build/panvk_smoke
           cat > build/panvk-smoke-entitlements.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -138,9 +158,12 @@ jobs:
           EOF
           codesign --force --sign - --pagesize 4096 --identifier org.dracen.native-mali-facade \
             build/libnative_mali_facade.dylib
+          codesign --force --sign - --pagesize 4096 --identifier org.dracen.NativeMaliMetal \
+            build/NativeMaliMetal
           codesign --force --sign - --pagesize 4096 --identifier org.dracen.panvk-smoke \
             --entitlements build/panvk-smoke-entitlements.plist build/panvk_smoke
           codesign --verify --strict build/libnative_mali_facade.dylib
+          codesign --verify --strict build/NativeMaliMetal
           codesign --verify --strict build/panvk_smoke
 
       - name: Package iOS addon
@@ -149,9 +172,11 @@ jobs:
           dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
           test -f "$dylib"
           test -f build/libnative_mali_facade.dylib
+          test -f build/NativeMaliMetal
           test -f build/panvk_smoke
           python3 tools/make-mali-gpu-addon.py --dylib "$dylib" \
-            --facade build/libnative_mali_facade.dylib --smoke build/panvk_smoke \
+            --facade build/libnative_mali_facade.dylib --plugin build/NativeMaliMetal \
+            --smoke build/panvk_smoke --publish \
             --output mali-gpu.addon
           python3 - <<'PY'
           import json
@@ -161,6 +186,7 @@ jobs:
               'panvk_smoke': 'build/panvk_smoke',
               'facade': 'build/libnative_mali_facade.dylib',
               'panvk': 'mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib',
+              'plugin': 'build/NativeMaliMetal',
           }
           hashes = {}
           for name, path in paths.items():
@@ -169,7 +195,7 @@ jobs:
               hashes[name] = re.search(r'^CDHash=([a-f0-9]{40})$', detail, re.M)[1]
           json.dump(hashes, open('target-trust.json', 'w'), indent=2)
           PY
-          shasum -a 256 "$dylib" build/libnative_mali_facade.dylib build/panvk_smoke mali-gpu.addon > artifacts.sha256
+          shasum -a 256 "$dylib" build/libnative_mali_facade.dylib build/NativeMaliMetal build/panvk_smoke mali-gpu.addon > artifacts.sha256
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
@@ -178,6 +204,7 @@ jobs:
           path: |
             mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
             build/libnative_mali_facade.dylib
+            build/NativeMaliMetal
             build/panvk_smoke
             mali-gpu.addon
             target-trust.json
