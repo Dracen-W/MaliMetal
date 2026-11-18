@@ -9,7 +9,7 @@ jobs:
   # The userspace stack, on a Mac runner: the ABI header comes from the
   # canonical kernel repository, never from a copy committed here.
   host:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
