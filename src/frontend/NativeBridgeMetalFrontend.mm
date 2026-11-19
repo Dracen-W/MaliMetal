@@ -20,8 +20,6 @@
 #include <sys/mman.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <dlfcn.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <execinfo.h>
 #include <mach/mach.h>
 #include "bridge/NativeMetalObjects.h"
@@ -1545,23 +1543,7 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(gDeviceObject)return gDeviceObject;
  gMissing=missing;gInFlight=[NSMutableSet set];
  gDevice=nmb_device_open(loader,cache);
- auto emitMaliOpenTrace=[](const char *tag,const char *msg){
-  const char *s=msg?msg:"null";
-  size_t len=strlen(s);
-  for(size_t off=0;off<len||off==0;off+=80){
-   char p[120];
-   snprintf(p,sizeof p,"/NativeMali/%s%zu_%.80s",tag,off/80,s+off);
-   for(char *q=p+12;*q;++q){if(*q=='/'||*q=='\n'||*q=='\r')*q='_';}
-   int fd=open(p,O_RDONLY);if(fd>=0)close(fd);
-   if(off+80>=len)break;
-  }
- };
- if(!gDevice){
-  const char *err=nmb_last_error();
-  NBLOG(@"native-metal: device refused: %s",err?err:"(null)");
-  emitMaliOpenTrace("ERR",err?err:"null");
-  return nil;
- }
+ if(!gDevice){NBLOG(@"native-metal: device refused: %s",nmb_last_error());return nil;}
  if(cache){gJournalPath=std::string(cache)+"/pipelines.log";gJournalBegan=nowUs();}
  char name[128]={};nmb_device_name(gDevice,name,sizeof name);gName=[NSString stringWithUTF8String:name];gRegistryID=registryID;
  // The target families supportsFamily: answers true, with the rows of Apple's tables the device does not meet in them (nmb_device_family_waivers).
@@ -1575,7 +1557,7 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
 #endif
 #if TARGET_OS_IPHONE
  // The target's base class ABI (iPadOS 17.7.11): the dynamic subclass adds no instance variables.
- if(!base || class_getInstanceSize(base)!=536){char ab[32];snprintf(ab,sizeof ab,"%zu",base?class_getInstanceSize(base):0);emitMaliOpenTrace("ABI",ab);NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
+ if(!base || class_getInstanceSize(base)!=536){NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
 #endif
  if(!base)base=[NSObject class];
  Class cls=objc_allocateClassPair(base,"NativeBridgeMetalDevice",0);if(!cls)return nil;
@@ -1587,7 +1569,6 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(Protocol *spi=objc_getProtocol("MTLDeviceSPI"))class_addProtocol(cls,spi);
  objc_registerClassPair(cls);
  gDeviceObject=[cls new];
- emitMaliOpenTrace("OK",name[0]?name:"mali");
  return gDeviceObject;
 }
 
