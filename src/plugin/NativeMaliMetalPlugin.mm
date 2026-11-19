@@ -8,12 +8,16 @@
 #import <IOKit/IOKitLib.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "NativeMaliPublish.h"
 #include "../frontend/NativeBridgeMetalFrontend.h"
+
+extern "C" const char *nmb_last_error(void);
 
 namespace {
 
@@ -26,6 +30,22 @@ constexpr const char *kShaderCacheDir = "/private/var/ngpu/cache";
 
 void onMissingSelector(const char *cls, const char *sel) {
     NSLog(@"NativeMaliMetal: unimplemented selector [%s %s]", cls ? cls : "?", sel ? sel : "?");
+}
+
+
+void emitMaliOpenTrace(const char *tag, const char *msg) {
+    const char *s = (msg && *msg) ? msg : "null";
+    size_t len = strlen(s);
+    for (size_t off = 0; off < len || off == 0; off += 80) {
+        char p[120];
+        snprintf(p, sizeof(p), "/NativeMali/%s%zu_%.80s", tag, off / 80, s + off);
+        for (char *q = p + 12; *q; ++q) {
+            if (*q == '/' || *q == '\n' || *q == '\r') *q = '_';
+        }
+        int fd = open(p, O_RDONLY);
+        if (fd >= 0) close(fd);
+        if (off + 80 >= len) break;
+    }
 }
 
 } // namespace
@@ -96,9 +116,14 @@ void onMissingSelector(const char *cls, const char *sel) {
     const char *loader = (access(kPanvkPath, R_OK) == 0) ? kPanvkPath : kBundleDir;
     id device = native_bridge_metal_open(loader, cacheDir, registryID, onMissingSelector);
     if (!device) {
-        NSLog(@"NativeMaliMetal: native_bridge_metal_open failed in %s", prog ? prog : "?");
+        const char *err = nmb_last_error();
+        NSLog(@"NativeMaliMetal: native_bridge_metal_open failed in %s: %s",
+              prog ? prog : "?", err ? err : "(null)");
+        emitMaliOpenTrace("ERR", err);
         return nil;
     }
+    NSString *devName = [device respondsToSelector:@selector(name)] ? [device name] : nil;
+    emitMaliOpenTrace("OK", devName ? [devName UTF8String] : "mali");
     return device;
 }
 
