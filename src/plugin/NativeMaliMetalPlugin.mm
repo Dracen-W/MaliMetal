@@ -73,13 +73,28 @@ void onMissingSelector(const char *cls, const char *sel) {
         (void)IORegistryEntryGetRegistryEntryID(port, &registryID);
     }
 
-    (void)[[NSFileManager defaultManager] createDirectoryAtPath:[NSString stringWithUTF8String:kShaderCacheDir]
-                                    withIntermediateDirectories:YES
-                                                     attributes:nil
-                                                          error:nil];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *cacheDirObj = [NSString stringWithUTF8String:kShaderCacheDir];
+    (void)[fm createDirectoryAtPath:cacheDirObj
+        withIntermediateDirectories:YES
+                         attributes:nil
+                              error:nil];
+    const char *cacheDir = kShaderCacheDir;
+    if (access(cacheDir, W_OK) != 0) {
+        NSString *tmpCache = [NSTemporaryDirectory() stringByAppendingPathComponent:@"malimetal-cache"];
+        (void)[fm createDirectoryAtPath:tmpCache
+            withIntermediateDirectories:YES
+                             attributes:nil
+                                  error:nil];
+        if (tmpCache && access([tmpCache fileSystemRepresentation], W_OK) == 0) {
+            cacheDir = [tmpCache fileSystemRepresentation];
+        } else {
+            cacheDir = "/private/var/tmp";
+        }
+    }
 
     const char *loader = (access(kPanvkPath, R_OK) == 0) ? kPanvkPath : kBundleDir;
-    id device = native_bridge_metal_open(loader, kShaderCacheDir, registryID, onMissingSelector);
+    id device = native_bridge_metal_open(loader, cacheDir, registryID, onMissingSelector);
     if (!device) {
         NSLog(@"NativeMaliMetal: native_bridge_metal_open failed in %s", prog ? prog : "?");
         return nil;

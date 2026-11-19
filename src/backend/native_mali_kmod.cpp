@@ -227,14 +227,14 @@ NativeMaliKmod *native_mali_kmod_create_default(NativeMaliResult *error) {
     *error = NATIVE_MALI_RESULT_UNSUPPORTED;
 
     io_service_t service = IOServiceGetMatchingService(
-        kIOMainPortDefault, IOServiceMatching("NativeMaliGpuService"));
+        MACH_PORT_NULL, IOServiceMatching("NativeMaliGpuService"));
     if (service == IO_OBJECT_NULL) {
         service = IOServiceGetMatchingService(
-            kIOMainPortDefault, IOServiceNameMatching("NativeMaliGpuService"));
+            MACH_PORT_NULL, IOServiceNameMatching("NativeMaliGpuService"));
     }
     if (service == IO_OBJECT_NULL) {
         service = IOServiceGetMatchingService(
-            kIOMainPortDefault, IOServiceMatching("IOAcceleratorES"));
+            MACH_PORT_NULL, IOServiceMatching("IOAcceleratorES"));
     }
     if (service == IO_OBJECT_NULL)
         return nullptr;

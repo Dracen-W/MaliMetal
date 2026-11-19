@@ -21,6 +21,18 @@ if [ -z "$(git -C "$metal2vulkan" status --porcelain)" ]; then
         git -C "$metal2vulkan" apply "$patch"
     done
 fi
+python3 - "$metal2vulkan" <<'PY'
+import pathlib, sys
+root = pathlib.Path(sys.argv[1])
+for p in root.rglob("*.rs"):
+    txt = p.read_text()
+    if 'b"vkGetInstanceProcAddr\0"' in txt and 'b"vk_icdGetInstanceProcAddr\0"' not in txt:
+        txt = txt.replace(
+            'lib.get(b"vkGetInstanceProcAddr\0")',
+            'lib.get(b"vkGetInstanceProcAddr\0").or_else(|_| lib.get(b"vk_icdGetInstanceProcAddr\0"))',
+        )
+        p.write_text(txt)
+PY
 
 out="$root/build/bridge-ios"
 rm -rf "$out"
