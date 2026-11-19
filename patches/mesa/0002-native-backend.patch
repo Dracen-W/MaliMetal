@@ -44,7 +44,7 @@ new file mode 100644
 index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,398 @@
+@@ -0,0 +1,402 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -239,8 +239,12 @@ index 0000000..44c3210
 +      if (op->wait.count || op->signal.count)
 +         return -1;
 +
++      if (op->type == PAN_KMOD_VM_OP_TYPE_UNMAP ||
++          op->type == PAN_KMOD_VM_OP_TYPE_SYNC_ONLY)
++         continue; /* native_mali_bo_free() drops the GPU mapping */
++
 +      if (op->type != PAN_KMOD_VM_OP_TYPE_MAP)
-+         return -1; /* unmap/sync-only are not in the ABI */
++         return -1;
 +
 +      if (op->va.start != PAN_KMOD_VM_MAP_AUTO_VA || op->map.bo_offset != 0)
 +         return -1;
