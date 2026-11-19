@@ -57,8 +57,10 @@ libc = "0.2"
 sha2 = { version = "0.10", features = ["asm"] }
 
 [profile.release]
-panic = "unwind"
-debug = 1
+opt-level = "z"
+panic = "abort"
+debug = false
+strip = "symbols"
 lto = "fat"
 codegen-units = 1
 EOF

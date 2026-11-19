@@ -111,6 +111,7 @@ jobs:
           ninja -C mesa/build-ios src/panfrost/vulkan/libvulkan_panfrost.dylib
           dylib=mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
           python3 tools/fix-weak-imports.py "$dylib"
+          strip -x "$dylib"
           codesign --force --sign - --pagesize 4096 "$dylib"
 
       - name: Build and sign NativeMaliMetal bundle, facade, and smoke process
@@ -133,7 +134,7 @@ jobs:
             -framework IOKit -framework CoreFoundation \
             -o build/libnative_mali_facade.dylib
           "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
-            -std=c++17 -O2 -g -Wall -Wextra -Werror \
+            -std=c++17 -Oz -Wall -Wextra -Werror \
             -fobjc-arc -Wno-deprecated-declarations -bundle \
             -Ibuild/abi -Isrc -Isrc/bridge -Isrc/frontend -Isrc/plugin -I/opt/homebrew/include \
             -x objective-c++ src/plugin/NativeMaliMetalPlugin.mm src/frontend/NativeBridgeMetalFrontend.mm \
