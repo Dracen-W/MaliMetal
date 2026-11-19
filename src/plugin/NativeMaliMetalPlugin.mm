@@ -81,6 +81,7 @@ void emitMaliOpenTrace(const char *tag, const char *msg) {
 
     setenv("MALIMETAL_NATIVE", "1", 1);
     setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
+    setenv("MESA_VK_VERSION_OVERRIDE", "1.2", 1);
 
     void *facade = dlopen(kFacadePath, RTLD_NOW | RTLD_GLOBAL);
     if (!facade) {
