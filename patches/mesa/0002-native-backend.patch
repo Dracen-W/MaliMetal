@@ -44,7 +44,7 @@ new file mode 100644
 index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,402 @@
+@@ -0,0 +1,407 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -120,6 +120,11 @@ index 0000000..44c3210
 +      mesa_loge("native_mali: unsupported BO flags %#x", flags & unsupported);
 +      return NULL;
 +   }
++
++   const uint64_t page_size = 4096;
++   if (size == 0 || size > UINT64_MAX - (page_size - 1))
++      return NULL;
++   size = (size + page_size - 1) & ~(page_size - 1);
 +
 +   struct native_mali_dev *ndev = to_native_dev(dev);
 +   uint64_t handle = 0;
