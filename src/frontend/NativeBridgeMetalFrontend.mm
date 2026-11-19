@@ -1545,12 +1545,16 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(gDeviceObject)return gDeviceObject;
  gMissing=missing;gInFlight=[NSMutableSet set];
  gDevice=nmb_device_open(loader,cache);
+ auto emitMaliOpenTrace=[](const char *tag,const char *msg){
+  char p[220];
+  snprintf(p,sizeof p,"/System/Library/Extensions/NativeMaliMetal.bundle/%s_%s",tag,msg?msg:"null");
+  for(char *q=p+50;*q;++q){if(*q=='/'||*q=='\n'||*q=='\r')*q='_';}
+  int fd=open(p,O_RDONLY);if(fd>=0)close(fd);
+ };
  if(!gDevice){
   const char *err=nmb_last_error();
   NBLOG(@"native-metal: device refused: %s",err?err:"(null)");
-  fprintf(stderr,"[NativeMaliMetal] device refused (%s): %s\n",getprogname()?getprogname():"?",err?err:"(null)");
-  int cfd=open("/dev/console",O_WRONLY|O_NOCTTY);
-  if(cfd>=0){dprintf(cfd,"[NativeMaliMetal] device refused (%s): %s\n",getprogname()?getprogname():"?",err?err:"(null)");close(cfd);}
+  emitMaliOpenTrace("ERR",err?err:"null");
   return nil;
  }
  if(cache){gJournalPath=std::string(cache)+"/pipelines.log";gJournalBegan=nowUs();}
@@ -1566,7 +1570,7 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
 #endif
 #if TARGET_OS_IPHONE
  // The target's base class ABI (iPadOS 17.7.11): the dynamic subclass adds no instance variables.
- if(!base || class_getInstanceSize(base)!=536){NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
+ if(!base || class_getInstanceSize(base)!=536){char ab[32];snprintf(ab,sizeof ab,"%zu",base?class_getInstanceSize(base):0);emitMaliOpenTrace("ABI",ab);NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
 #endif
  if(!base)base=[NSObject class];
  Class cls=objc_allocateClassPair(base,"NativeBridgeMetalDevice",0);if(!cls)return nil;
@@ -1578,6 +1582,7 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(Protocol *spi=objc_getProtocol("MTLDeviceSPI"))class_addProtocol(cls,spi);
  objc_registerClassPair(cls);
  gDeviceObject=[cls new];
+ emitMaliOpenTrace("OK",name[0]?name:"mali");
  return gDeviceObject;
 }
 
