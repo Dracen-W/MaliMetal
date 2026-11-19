@@ -38,15 +38,24 @@ index dbc1b39..b48b933 100644
  static VkResult
  panvk_physical_device_try_create(struct vk_instance *vk_instance,
                                   struct _drmDevice *drm_device,
-@@ -157,6 +158,7 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
+@@ -157,6 +158,16 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
     *out = &device->vk;
     return VK_SUCCESS;
  }
++#else
++extern VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
++vk_icdGetInstanceProcAddr(VkInstance instance, const char *pName);
++
++__attribute__((visibility("default"))) VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
++vkGetInstanceProcAddr(VkInstance instance, const char *pName)
++{
++   return vk_icdGetInstanceProcAddr(instance, pName);
++}
 +#endif
  
  static VkResult
  panvk_physical_device_try_create_native(struct vk_instance *vk_instance,
-@@ -279,8 +281,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+@@ -279,8 +290,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
  
     vk_instance_dispatch_table_from_entrypoints(
        &dispatch_table, &panvk_instance_entrypoints, true);
@@ -57,7 +66,7 @@ index dbc1b39..b48b933 100644
     result = vk_instance_init(&instance->vk, &panvk_instance_extensions,
                               &dispatch_table, pCreateInfo, pAllocator);
     if (result != VK_SUCCESS) {
-@@ -297,8 +301,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+@@ -297,8 +310,10 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
     };
  
     instance->vk.physical_devices.enumerate = panvk_enumerate_native;
