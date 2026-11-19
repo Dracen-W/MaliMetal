@@ -1,0 +1,112 @@
+# MaliMetal patch 0021: enable emulated timeline semaphores over NativeMali
+# binary sync and allow empty/multi-wait native queue submits.
+#
+# Base: Mesa tag mesa-26.2.6 with patches 0001..0020 applied.
+# metal2vulkan-runtime requires VK_KHR_timeline_semaphore / Vulkan 1.2
+# timelineSemaphore on every queue. Register Mesa's vk_sync_timeline_get_type()
+# on top of panvk_native_sync_type and add CPU_SIGNAL + WAIT_PENDING support.
+diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
+--- a/src/panfrost/vulkan/panvk_physical_device.c
++++ b/src/panfrost/vulkan/panvk_physical_device.c
+@@ -447,6 +447,9 @@ get_device_sync_types(struct panvk_physical_device *device,
+    (void)arch;
+    if (device->native) {
+       device->native_sync_type = *panvk_native_sync_get_type();
+       device->sync_types[sync_type_count++] = &device->native_sync_type;
++      device->sync_timeline_type =
++         vk_sync_timeline_get_type(&device->native_sync_type);
++      device->sync_types[sync_type_count++] = &device->sync_timeline_type.sync;
+       device->sync_types[sync_type_count] = NULL;
+       return VK_SUCCESS;
+    }
+diff --git a/src/panfrost/vulkan/panvk_native_sync.c b/src/panfrost/vulkan/panvk_native_sync.c
+--- a/src/panfrost/vulkan/panvk_native_sync.c
++++ b/src/panfrost/vulkan/panvk_native_sync.c
+@@ -63,6 +63,16 @@ panvk_native_sync_reset(struct vk_device *device, struct vk_sync *sync)
+    return VK_SUCCESS;
+ }
+ 
++static VkResult
++panvk_native_sync_signal(struct vk_device *device, struct vk_sync *sync,
++                         uint64_t value)
++{
++   (void)device;
++   (void)value;
++   struct panvk_native_sync *native = to_native_sync(sync);
++   native->fence = 0;
++   native->signaled = true;
++   return VK_SUCCESS;
++}
++
+ static VkResult
+ panvk_native_sync_wait(struct vk_device *device, struct vk_sync *sync,
+                        uint64_t wait_value, enum vk_sync_wait_flags wait_flags,
+@@ -71,8 +81,10 @@ panvk_native_sync_wait(struct vk_device *device, struct vk_sync *sync,
+    (void)wait_value;
+    struct panvk_native_sync *native = to_native_sync(sync);
+ 
+-   if (wait_flags & VK_SYNC_WAIT_PENDING)
+-      return VK_ERROR_FEATURE_NOT_PRESENT;
++   if (wait_flags & VK_SYNC_WAIT_PENDING) {
++      return (native->fence != 0 || native->signaled) ? VK_SUCCESS
++                                                      : VK_TIMEOUT;
++   }
+ 
+    if (native->fence == 0)
+       return native->signaled ? VK_SUCCESS : VK_TIMEOUT;
+@@ -122,12 +134,14 @@ static const struct vk_sync_type native_sync_type = {
+    .size = sizeof(struct panvk_native_sync),
+    .features = VK_SYNC_FEATURE_BINARY | VK_SYNC_FEATURE_GPU_WAIT |
+                VK_SYNC_FEATURE_CPU_WAIT | VK_SYNC_FEATURE_CPU_RESET |
+-               VK_SYNC_FEATURE_WAIT_ANY,
++               VK_SYNC_FEATURE_CPU_SIGNAL | VK_SYNC_FEATURE_WAIT_ANY |
++               VK_SYNC_FEATURE_WAIT_PENDING,
+    .init = panvk_native_sync_init,
+    .finish = panvk_native_sync_finish,
+    .reset = panvk_native_sync_reset,
++   .signal = panvk_native_sync_signal,
+    .wait = panvk_native_sync_wait,
+    .wait_many = panvk_native_sync_wait_many,
+ };
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+--- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
+@@ -291,17 +291,26 @@ panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
+    /* NativeMali has one wait fence per submit and one out fence per job. A
+     * multi-wait submit is a real ABI gap, not something to emulate by waiting
+     * on the CPU. */
+-   if (submit->wait_count > 1)
+-      return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
+-
+    uint64_t external_wait = 0;
+    uint64_t submitted_fence = 0;
+-   if (submit->wait_count == 1) {
+-      if (!panvk_sync_type_is_native_mali(submit->waits[0].sync->type))
++   for (uint32_t i = 0; i < submit->wait_count; ++i) {
++      if (!panvk_sync_type_is_native_mali(submit->waits[i].sync->type))
+          return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
+-      external_wait = panvk_native_sync_get_fence(submit->waits[0].sync);
++      const uint64_t fence = panvk_native_sync_get_fence(submit->waits[i].sync);
++      if (fence == 0)
++         continue;
++      if (external_wait != 0) {
++         if (dev->kmod.dev->ops->wait_fence == NULL ||
++             dev->kmod.dev->ops->wait_fence(dev->kmod.dev, external_wait,
++                                            UINT64_MAX)) {
++            return panvk_error(dev, VK_ERROR_DEVICE_LOST);
++         }
++      }
++      external_wait = fence;
+    }
+ 
+    for (uint32_t j = 0; j < submit->command_buffer_count; ++j) {
+@@ -316,9 +325,6 @@ panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
+       }
+    }
+ 
+-   if (submit->signal_count != 0 && submitted_fence == 0)
+-      return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);
+-
+    for (uint32_t i = 0; i < submit->signal_count; ++i) {
+       if (!panvk_sync_type_is_native_mali(submit->signals[i].sync->type))
+          return panvk_error(dev, VK_ERROR_FEATURE_NOT_PRESENT);

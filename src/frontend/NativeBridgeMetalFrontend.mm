@@ -20,6 +20,8 @@
 #include <sys/mman.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <execinfo.h>
 #include <mach/mach.h>
 #include "bridge/NativeMetalObjects.h"
@@ -1543,7 +1545,14 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  if(gDeviceObject)return gDeviceObject;
  gMissing=missing;gInFlight=[NSMutableSet set];
  gDevice=nmb_device_open(loader,cache);
- if(!gDevice){NBLOG(@"native-metal: device refused: %s",nmb_last_error());return nil;}
+ if(!gDevice){
+  const char *err=nmb_last_error();
+  NBLOG(@"native-metal: device refused: %s",err?err:"(null)");
+  fprintf(stderr,"[NativeMaliMetal] device refused (%s): %s\n",getprogname()?getprogname():"?",err?err:"(null)");
+  int cfd=open("/dev/console",O_WRONLY|O_NOCTTY);
+  if(cfd>=0){dprintf(cfd,"[NativeMaliMetal] device refused (%s): %s\n",getprogname()?getprogname():"?",err?err:"(null)");close(cfd);}
+  return nil;
+ }
  if(cache){gJournalPath=std::string(cache)+"/pipelines.log";gJournalBegan=nowUs();}
  char name[128]={};nmb_device_name(gDevice,name,sizeof name);gName=[NSString stringWithUTF8String:name];gRegistryID=registryID;
  // The target families supportsFamily: answers true, with the rows of Apple's tables the device does not meet in them (nmb_device_family_waivers).
