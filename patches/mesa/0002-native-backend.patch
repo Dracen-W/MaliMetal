@@ -135,7 +135,7 @@ index 0000000..44c3210
 +   pthread_mutex_unlock(&g_cpu_map_lock);
 +
 +   if (found != NULL) {
-+      struct NativeMaliKmod *kmod = to_native_dev(found->base.dev)->kmod;
++      struct NativeMaliKmod *kmod = container_of(found->base.dev, struct native_mali_dev, base)->kmod;
 +      const uint32_t token = found->cpu_token;
 +      found->cpu_addr = NULL;
 +      found->cpu_token = 0;
