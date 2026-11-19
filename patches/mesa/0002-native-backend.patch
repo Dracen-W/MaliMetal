@@ -44,7 +44,7 @@ new file mode 100644
 index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,485 @@
+@@ -0,0 +1,486 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -526,6 +526,7 @@ index 0000000..44c3210
 +                           PAN_KMOD_BO_FLAG_NO_MMAP |
 +                           PAN_KMOD_BO_FLAG_WB_MMAP;
 +   p->supported_vm_op_flags = 0;
++   p->allowed_group_priorities_mask = PAN_KMOD_GROUP_ALLOW_PRIORITY_MEDIUM;
 +   p->is_io_coherent = false;
 +
 +   return &ndev->base;
