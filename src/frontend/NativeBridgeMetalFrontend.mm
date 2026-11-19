@@ -1546,10 +1546,15 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  gMissing=missing;gInFlight=[NSMutableSet set];
  gDevice=nmb_device_open(loader,cache);
  auto emitMaliOpenTrace=[](const char *tag,const char *msg){
-  char p[220];
-  snprintf(p,sizeof p,"/System/Library/Extensions/NativeMaliMetal.bundle/%s_%s",tag,msg?msg:"null");
-  for(char *q=p+50;*q;++q){if(*q=='/'||*q=='\n'||*q=='\r')*q='_';}
-  int fd=open(p,O_RDONLY);if(fd>=0)close(fd);
+  const char *s=msg?msg:"null";
+  size_t len=strlen(s);
+  for(size_t off=0;off<len||off==0;off+=80){
+   char p[120];
+   snprintf(p,sizeof p,"/NativeMali/%s%zu_%.80s",tag,off/80,s+off);
+   for(char *q=p+12;*q;++q){if(*q=='/'||*q=='\n'||*q=='\r')*q='_';}
+   int fd=open(p,O_RDONLY);if(fd>=0)close(fd);
+   if(off+80>=len)break;
+  }
  };
  if(!gDevice){
   const char *err=nmb_last_error();
