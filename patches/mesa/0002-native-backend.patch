@@ -44,7 +44,7 @@ new file mode 100644
 index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,413 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -121,7 +121,13 @@ index 0000000..44c3210
 +      return NULL;
 +   }
 +
++#if defined(__APPLE__)
++   /* iOS arm64 host VM pages are 16 KiB (still a multiple of Mali's 4 KiB MMU
++    * page); sub-16 KiB BOs trip EXC_GUARD (GUARD_TYPE_VIRT_MEMORY) on munmap. */
++   const uint64_t page_size = 16384;
++#else
 +   const uint64_t page_size = 4096;
++#endif
 +   if (size == 0 || size > UINT64_MAX - (page_size - 1))
 +      return NULL;
 +   size = (size + page_size - 1) & ~(page_size - 1);
