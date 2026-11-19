@@ -44,7 +44,7 @@ new file mode 100644
 index 0000000..44c3210
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,413 @@
+@@ -0,0 +1,485 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -65,6 +65,8 @@ index 0000000..44c3210
 +#include "pan_kmod_backend.h"
 +#include "pan_kmod_native_mali.h"
 +
++#include <pthread.h>
++#include <sys/mman.h>
 +#include "native_mali_kmod.h"
 +
 +#include "util/log.h"
@@ -82,7 +84,70 @@ index 0000000..44c3210
 +    * sparse-array index. Keep the real handle here rather than truncating. */
 +   uint64_t handle;
 +   uint32_t cpu_token;
++   void *cpu_addr;
 +};
++
++#define NATIVE_MALI_CPU_MAP_SLOTS 512
++static pthread_mutex_t g_cpu_map_lock = PTHREAD_MUTEX_INITIALIZER;
++static struct native_mali_bo *g_cpu_map_slots[NATIVE_MALI_CPU_MAP_SLOTS];
++
++static void
++native_mali_cpu_map_track(struct native_mali_bo *nbo)
++{
++   pthread_mutex_lock(&g_cpu_map_lock);
++   for (unsigned i = 0; i < NATIVE_MALI_CPU_MAP_SLOTS; i++) {
++      if (g_cpu_map_slots[i] == NULL) {
++         g_cpu_map_slots[i] = nbo;
++         break;
++      }
++   }
++   pthread_mutex_unlock(&g_cpu_map_lock);
++}
++
++static void
++native_mali_cpu_map_untrack(struct native_mali_bo *nbo)
++{
++   pthread_mutex_lock(&g_cpu_map_lock);
++   for (unsigned i = 0; i < NATIVE_MALI_CPU_MAP_SLOTS; i++) {
++      if (g_cpu_map_slots[i] == nbo) {
++         g_cpu_map_slots[i] = NULL;
++         break;
++      }
++   }
++   pthread_mutex_unlock(&g_cpu_map_lock);
++}
++
++int
++pan_kmod_native_mali_munmap(void *addr, size_t size)
++{
++   if (addr == NULL)
++      return 0;
++
++   struct native_mali_bo *found = NULL;
++   pthread_mutex_lock(&g_cpu_map_lock);
++   for (unsigned i = 0; i < NATIVE_MALI_CPU_MAP_SLOTS; i++) {
++      if (g_cpu_map_slots[i] != NULL && g_cpu_map_slots[i]->cpu_addr == addr) {
++         found = g_cpu_map_slots[i];
++         g_cpu_map_slots[i] = NULL;
++         break;
++      }
++   }
++   pthread_mutex_unlock(&g_cpu_map_lock);
++
++   if (found != NULL) {
++      struct NativeMaliKmod *kmod = to_native_dev(found->base.dev)->kmod;
++      const uint32_t token = found->cpu_token;
++      found->cpu_addr = NULL;
++      found->cpu_token = 0;
++      if (token != 0) {
++         (void)native_mali_kmod_cpu_address_unmap(kmod, token, addr);
++         (void)native_mali_kmod_cpu_unmap(kmod, found->handle, token);
++      }
++      return 0;
++   }
++
++   return munmap(addr, size);
++}
 +
 +static struct native_mali_dev *
 +to_native_dev(struct pan_kmod_dev *dev)
@@ -155,6 +220,11 @@ index 0000000..44c3210
 +   struct NativeMaliKmod *kmod = to_native_dev(bo->dev)->kmod;
 +
 +   if (nbo->cpu_token != 0) {
++      native_mali_cpu_map_untrack(nbo);
++      if (nbo->cpu_addr != NULL) {
++         (void)native_mali_kmod_cpu_address_unmap(kmod, nbo->cpu_token, nbo->cpu_addr);
++         nbo->cpu_addr = NULL;
++      }
 +      (void)native_mali_kmod_cpu_unmap(kmod, nbo->handle, nbo->cpu_token);
 +      nbo->cpu_token = 0;
 +   }
@@ -207,6 +277,8 @@ index 0000000..44c3210
 +      return MAP_FAILED;
 +
 +   nbo->cpu_token = token;
++   nbo->cpu_addr = address;
++   native_mali_cpu_map_track(nbo);
 +   return address;
 +}
 +

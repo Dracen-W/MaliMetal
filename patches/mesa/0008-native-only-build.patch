@@ -153,7 +153,7 @@ index d1fc643..81d523b 100644
  
  #include "drm-uapi/drm.h"
  
-@@ -652,11 +654,15 @@ struct pan_kmod_dev {
+@@ -652,11 +654,19 @@ struct pan_kmod_dev {
     void *user_priv;
  };
  
@@ -165,6 +165,10 @@ index d1fc643..81d523b 100644
     })
 +#else
 +#define pan_kmod_ioctl(fd, op, arg) (-1)
++#include "util/os_mman.h"
++int pan_kmod_native_mali_munmap(void *addr, size_t size);
++#undef os_munmap
++#define os_munmap(addr, size) pan_kmod_native_mali_munmap((addr), (size))
 +#endif
  
  struct pan_kmod_dev *
