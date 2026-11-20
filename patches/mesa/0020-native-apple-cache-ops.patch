@@ -1,14 +1,16 @@
 # MaliMetal patch 0020: Darwin EL0 cannot read CTR_EL0 or run DC ops.
 #
-# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
 #
 # vk_physical_device_init() queries util_cache_granularity(), which executes
 # MRS CTR_EL0; macOS traps it and the smoke test died with SIGILL before the
 # physical device was returned.  Darwin also does not allow DC CVAC/CIVAC from
 # EL0.  Use the fixed Apple line encoding and leave data-cache ownership to the
 # NativeMali service/IOMMU.
---- a/src/util/cache_ops_aarch64.c	2026-11-04 00:28:39.863634671 +0000
-+++ b/src/util/cache_ops_aarch64.c	2026-11-04 00:28:38.872634713 +0000
+diff --git a/src/util/cache_ops_aarch64.c b/src/util/cache_ops_aarch64.c
+index d56ab8a..e914577 100644
+--- a/src/util/cache_ops_aarch64.c
++++ b/src/util/cache_ops_aarch64.c
 @@ -29,9 +29,16 @@
  static uint32_t
  get_ctr_el0(void)
@@ -26,7 +28,7 @@
  }
  
  static uint32_t
-@@ -95,21 +102,35 @@
+@@ -95,21 +102,35 @@ get_dmin_line(void)
  static void
  flush_l1_cacheline(UNUSED void *p)
  {

@@ -1,7 +1,7 @@
 # MaliMetal patch 0005: enumerate and create a PanVK physical device without
 # /dev/dri.
 #
-# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
 # Depends on 0001-0004 and 0006 (the native vk_sync type).
 #
 # With MALIMETAL_NATIVE set, the instance enumerates through the
@@ -13,10 +13,10 @@
 # Compiled by the mesa-panvk CI job. It has not been run on hardware; MM4 still
 # needs the service and a working kernel job.
 diff --git a/src/panfrost/vulkan/panvk_device.h b/src/panfrost/vulkan/panvk_device.h
-index c81d537..2e1cb04 100644
+index 2ee2e8b..3d6cd10 100644
 --- a/src/panfrost/vulkan/panvk_device.h
 +++ b/src/panfrost/vulkan/panvk_device.h
-@@ -130,6 +130,7 @@ struct panvk_device {
+@@ -147,6 +147,7 @@ struct panvk_device {
     };
  
     int drm_fd;
@@ -25,10 +25,10 @@ index c81d537..2e1cb04 100644
  
  VK_DEFINE_HANDLE_CASTS(panvk_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
 diff --git a/src/panfrost/vulkan/panvk_instance.c b/src/panfrost/vulkan/panvk_instance.c
-index 102dc93..dbc1b39 100644
+index b519885..08e4b29 100644
 --- a/src/panfrost/vulkan/panvk_instance.c
 +++ b/src/panfrost/vulkan/panvk_instance.c
-@@ -158,6 +158,47 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
+@@ -156,6 +156,47 @@ panvk_physical_device_try_create(struct vk_instance *vk_instance,
     return VK_SUCCESS;
  }
  
@@ -76,7 +76,7 @@ index 102dc93..dbc1b39 100644
  static void
  panvk_destroy_physical_device(struct vk_physical_device *device)
  {
-@@ -257,6 +296,7 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
+@@ -255,6 +296,7 @@ panvk_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
        .priv = &instance->vk.alloc,
     };
  
@@ -85,7 +85,7 @@ index 102dc93..dbc1b39 100644
        panvk_physical_device_try_create;
     instance->vk.physical_devices.destroy = panvk_destroy_physical_device;
 diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
-index e7e64e2..34456f1 100644
+index f500314..73714ce 100644
 --- a/src/panfrost/vulkan/panvk_physical_device.c
 +++ b/src/panfrost/vulkan/panvk_physical_device.c
 @@ -34,6 +34,9 @@
@@ -96,9 +96,9 @@ index e7e64e2..34456f1 100644
 +#include "kmod/pan_kmod_native_mali.h"
 +
  #include "pan_afbc.h"
+ #include "pan_compiler.h"
  #include "pan_props.h"
- 
-@@ -70,10 +73,50 @@ PER_ARCH_FUNCS(12);
+@@ -72,10 +75,50 @@ PER_ARCH_FUNCS(12);
  PER_ARCH_FUNCS(13);
  PER_ARCH_FUNCS(14);
  
@@ -147,9 +147,9 @@ index e7e64e2..34456f1 100644
 +      return VK_ERROR_INCOMPATIBLE_DRIVER;
 +
     const char *path = drm_device->nodes[DRM_NODE_RENDER];
-    drmVersionPtr version;
-    int fd;
-@@ -126,6 +169,15 @@ get_drm_device_ids(struct panvk_physical_device *device,
+    int fd = open(path, O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+@@ -112,6 +155,15 @@ get_drm_device_ids(struct panvk_physical_device *device,
  {
     struct stat st;
  
@@ -165,7 +165,7 @@ index e7e64e2..34456f1 100644
     if (stat(drm_device->nodes[DRM_NODE_RENDER], &st)) {
        return vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
                         "failed to query render node stat");
-@@ -383,6 +435,13 @@ get_device_sync_types(struct panvk_physical_device *device,
+@@ -370,6 +422,13 @@ get_device_sync_types(struct panvk_physical_device *device,
     const unsigned arch = pan_arch(device->kmod.dev->props.gpu_id);
     uint32_t sync_type_count = 0;
  
@@ -176,10 +176,10 @@ index e7e64e2..34456f1 100644
 +      return VK_SUCCESS;
 +   }
 +
-    device->drm_syncobj_type = vk_drm_syncobj_get_type(device->kmod.dev->fd);
+    device->drm_syncobj_type = vk_drm_syncobj_get_type_from_provider(device->kmod.dev->sync_ops);
+ 
     if (!device->drm_syncobj_type.features) {
-       return vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
-@@ -430,6 +489,11 @@ panvk_physical_device_finish(struct panvk_physical_device *device)
+@@ -418,6 +477,11 @@ panvk_physical_device_finish(struct panvk_physical_device *device)
  
     pan_kmod_dev_destroy(device->kmod.dev);
  
@@ -191,7 +191,7 @@ index e7e64e2..34456f1 100644
     release_memory_budget(device->memory.budget);
  
     vk_physical_device_finish(&device->vk);
-@@ -565,6 +629,11 @@ fail:
+@@ -554,6 +618,11 @@ fail:
  
     pan_kmod_dev_destroy(device->kmod.dev);
  
@@ -240,10 +240,10 @@ index 2211e74..89cdf4d 100644
  
  
 diff --git a/src/panfrost/vulkan/panvk_vX_device.c b/src/panfrost/vulkan/panvk_vX_device.c
-index 5e54c68..6978027 100644
+index a28094a..8e2a923 100644
 --- a/src/panfrost/vulkan/panvk_vX_device.c
 +++ b/src/panfrost/vulkan/panvk_vX_device.c
-@@ -386,16 +386,27 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+@@ -506,16 +506,27 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
     device->vk.shader_ops = &panvk_per_arch(device_shader_ops);
     device->vk.check_status = panvk_device_check_status;
     device->vk.get_timestamp = panvk_device_get_timestamp;
@@ -275,17 +275,17 @@ index 5e54c68..6978027 100644
  
     if (!device->kmod.dev) {
        result = panvk_errorf(instance, VK_ERROR_OUT_OF_HOST_MEMORY,
-@@ -534,7 +545,8 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+@@ -626,7 +637,8 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
                   device->printf.bo->addr.host);
  
     device->drm_fd = device->kmod.dev->fd;
--   vk_device_set_drm_fd(&device->vk, device->kmod.dev->fd);
+-   device->vk.sync =  pan_kmod_sync_clone(device->kmod.dev);
 +   if (!physical_device->native)
-+      vk_device_set_drm_fd(&device->vk, device->kmod.dev->fd);
- 
++      device->vk.sync = pan_kmod_sync_clone(device->kmod.dev);
  
     result = panvk_precomp_init(device);
-@@ -629,7 +641,8 @@ err_destroy_kdev:
+    if (result != VK_SUCCESS)
+@@ -716,7 +728,8 @@ err_destroy_kdev:
     if (device->debug.decode_ctx)
        pandecode_destroy_context(device->debug.decode_ctx);
  
@@ -295,7 +295,7 @@ index 5e54c68..6978027 100644
  
  err_finish_dev:
     vk_device_finish(&device->vk);
-@@ -680,7 +693,8 @@ panvk_per_arch(destroy_device)(struct panvk_device *device,
+@@ -764,7 +777,8 @@ panvk_per_arch(destroy_device)(struct panvk_device *device,
     if (device->debug.decode_ctx)
        pandecode_destroy_context(device->debug.decode_ctx);
  

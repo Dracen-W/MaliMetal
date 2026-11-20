@@ -1,0 +1,79 @@
+# MaliMetal patch 0022: enable VK_EXT/ARM_rasterization_order_attachment_access on Bifrost v7.
+#
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
+#
+# QuartzCore programmable-blending shaders (e.g. luma_boost_lph) require
+# FramebufferFetch via VK_EXT_rasterization_order_attachment_access
+# (rasterizationOrderColorAttachmentAccess). PanVK v7 (Mali-G52 Bifrost)
+# already lowers input attachment loads to tilebuffer LD_TILE and already
+# advertises VK_KHR_dynamic_rendering_local_read; wire the same FPK-disable
+# and late-ZS rasterization_order_access guards from csf/panvk_vX_cmd_draw.c
+# into jm/panvk_vX_cmd_draw.c and expose the extension on PAN_ARCH >= 7.
+diff --git a/src/panfrost/vulkan/jm/panvk_vX_cmd_draw.c b/src/panfrost/vulkan/jm/panvk_vX_cmd_draw.c
+index 7df80b3..97ed52a 100644
+--- a/src/panfrost/vulkan/jm/panvk_vX_cmd_draw.c
++++ b/src/panfrost/vulkan/jm/panvk_vX_cmd_draw.c
+@@ -300,16 +300,27 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
+                ? PAN_EARLYZS_ZS_TILEBUF_READ_NO_OPT
+                : PAN_EARLYZS_ZS_TILEBUF_NOT_READ;
+ 
++         bool roa_color =
++            cmdbuf->vk.dynamic_graphics_state.rasterization_order_access &
++            VK_IMAGE_ASPECT_COLOR_BIT;
++
+          cfg.properties.allow_forward_pixel_to_kill =
+             fs_info->fs.can_fpk && !(rt_mask & ~rt_written) &&
+             !(rt_read & rt_written) && !alpha_to_coverage &&
+-            !binfo->any_dest_read;
++            !binfo->any_dest_read && !roa_color;
+ 
+          bool writes_zs = writes_z || writes_s;
+          bool zs_always_passes = ds_test_always_passes(cmdbuf);
+          bool oq = cmdbuf->state.gfx.occlusion_query.mode !=
+                    MALI_OCCLUSION_MODE_DISABLED;
+ 
++         bool roa_zs =
++            cmdbuf->vk.dynamic_graphics_state.rasterization_order_access &
++            (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
++
++         if (roa_zs)
++            zs_read = PAN_EARLYZS_ZS_TILEBUF_READ_NO_OPT;
++
+          struct pan_earlyzs_state earlyzs =
+             pan_earlyzs_get(fs->fs.earlyzs_lut, writes_zs || oq,
+                             alpha_to_coverage, zs_always_passes, zs_read);
+diff --git a/src/panfrost/vulkan/panvk_vX_physical_device.c b/src/panfrost/vulkan/panvk_vX_physical_device.c
+index 7f98235..eb32e85 100644
+--- a/src/panfrost/vulkan/panvk_vX_physical_device.c
++++ b/src/panfrost/vulkan/panvk_vX_physical_device.c
+@@ -205,7 +205,7 @@ panvk_per_arch(get_physical_device_extensions)(
+       .EXT_primitive_topology_list_restart = true,
+       .EXT_provoking_vertex = true,
+       .EXT_queue_family_foreign = true,
+-      .EXT_rasterization_order_attachment_access = PAN_ARCH >= 10,
++      .EXT_rasterization_order_attachment_access = PAN_ARCH >= 7,
+       .EXT_rgba10x6_formats = PAN_ARCH >= 11,
+       .EXT_robustness2 = PAN_ARCH >= 10,
+       .EXT_sampler_filter_minmax = PAN_ARCH >= 10,
+@@ -251,7 +251,7 @@ panvk_per_arch(get_physical_device_extensions)(
+       .ARM_shader_core_builtins = true,
+       .ARM_shader_core_properties = true,
+       .ARM_scheduling_controls = true,
+-      .ARM_rasterization_order_attachment_access = PAN_ARCH >= 10,
++      .ARM_rasterization_order_attachment_access = PAN_ARCH >= 7,
+    };
+ }
+ 
+@@ -789,9 +789,9 @@ panvk_per_arch(get_physical_device_features)(
+ #endif
+ 
+       /* VK_EXT_rasterization_order_attachment_access */
+-      .rasterizationOrderColorAttachmentAccess = PAN_ARCH >= 10,
+-      .rasterizationOrderDepthAttachmentAccess = PAN_ARCH >= 10,
+-      .rasterizationOrderStencilAttachmentAccess = PAN_ARCH >= 10,
++      .rasterizationOrderColorAttachmentAccess = PAN_ARCH >= 7,
++      .rasterizationOrderDepthAttachmentAccess = PAN_ARCH >= 7,
++      .rasterizationOrderStencilAttachmentAccess = PAN_ARCH >= 7,
+ 
+       /* VK_ANDROID_external_format_resolve */
+       .externalFormatResolve = has_gralloc && PAN_ARCH >= 10,

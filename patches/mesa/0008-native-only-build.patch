@@ -1,6 +1,6 @@
 # MaliMetal patch 0008: a native-only PanVK build without libdrm.
 #
-# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
 # Depends on 0001-0007.
 #
 # The target has no libdrm and no DRM render node. This option omits the
@@ -13,10 +13,10 @@
 # This is the build configuration for the target PanVK artifact; it is not a
 # hardware claim and it does not make the Linux `mesa-panvk` job target-native.
 diff --git a/meson.build b/meson.build
-index 37f2fd4..59c4cb5 100644
+index 59d30c8..f59b6f7 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -1935,6 +1935,10 @@ else
+@@ -816,6 +816,10 @@ else
    # dependencies (such as vk-runtime) linking to it
    dep_libdrm = null_dep
  endif
@@ -28,12 +28,12 @@ index 37f2fd4..59c4cb5 100644
    pre_args += '-DHAVE_LIBDRM'
    if with_dri_platform == 'drm' and with_dri
 diff --git a/meson.options b/meson.options
-index 93a60e3..1e12f56 100644
+index beb2837..4774b08 100644
 --- a/meson.options
 +++ b/meson.options
-@@ -915,3 +915,10 @@ option(
-   value : false,
-   description : 'Build panfrost Rust components.'
+@@ -923,3 +923,10 @@ option(
+   value : true,
+   description : 'Build panfrost disassemblers. Explicitly setting this option to false will cause the panfrost stack to build without disassemblers. This should be left enabled for distro builds.'
  )
 +
 +option(
@@ -43,39 +43,40 @@ index 93a60e3..1e12f56 100644
 +  description : 'Build PanVK only through the native pan_kmod backend; omit DRM backends and libdrm.',
 +)
 diff --git a/src/panfrost/lib/kmod/meson.build b/src/panfrost/lib/kmod/meson.build
-index 7798b19..da40512 100644
+index 922fc07..5ba6c48 100644
 --- a/src/panfrost/lib/kmod/meson.build
 +++ b/src/panfrost/lib/kmod/meson.build
-@@ -3,10 +3,11 @@
- 
- libpankmod_lib_files = files(
+@@ -6,10 +6,11 @@ libpankmod_lib_link_with = []
+ libpankmod_lib_inc = []
+ libpankmod_lib_code = [
    'pan_kmod.c',
 -  'panfrost_kmod.c',
 -  'panthor_kmod.c',
    'pan_kmod_native_mali.c',
- )
+ ]
 +if not get_option('panfrost-native-only')
-+  libpankmod_lib_files += files('panfrost_kmod.c', 'panthor_kmod.c')
++  libpankmod_lib_code += ['panfrost_kmod.c', 'panthor_kmod.c']
 +endif
  
- libpankmod_lib = static_library(
-   'pankmod_lib',
-@@ -14,11 +15,11 @@ libpankmod_lib = static_library(
-   include_directories : [inc_include, inc_src, inc_panfrost],
-   c_args : [no_override_init_args],
+ if with_panfrost_vdrm
+   libpankmod_lib_inc += [inc_virtio_gpu, inc_virtio_vdrm, include_directories('virtio')]
+@@ -25,12 +26,12 @@ libpankmod_lib = static_library(
+   include_directories : [inc_include, inc_src, inc_panfrost, libpankmod_lib_inc],
+   c_args : libpankmod_lib_args,
    gnu_symbol_visibility : 'hidden',
 -  dependencies: [dep_libdrm, idep_mesautil, idep_pan_packers, libpanfrost_model_dep],
 +  dependencies: [idep_mesautil, idep_pan_packers, libpanfrost_model_dep],
    build_by_default : false,
+   link_with: libpankmod_lib_link_with
  )
  
  libpankmod_dep = declare_dependency(
-   include_directories: [inc_include, inc_src],
+   include_directories: [inc_include, libpankmod_lib_inc],
 -  dependencies: [dep_libdrm],
 +  dependencies: [],
  )
 diff --git a/src/panfrost/lib/kmod/pan_kmod.c b/src/panfrost/lib/kmod/pan_kmod.c
-index 9ca5299..a88d9ad 100644
+index 9862108..e33769e 100644
 --- a/src/panfrost/lib/kmod/pan_kmod.c
 +++ b/src/panfrost/lib/kmod/pan_kmod.c
 @@ -4,7 +4,9 @@
@@ -95,16 +96,16 @@ index 9ca5299..a88d9ad 100644
 +#ifndef PAN_KMOD_NATIVE_ONLY
  extern const struct pan_kmod_ops panfrost_kmod_ops;
  extern const struct pan_kmod_ops panthor_kmod_ops;
- 
-@@ -28,6 +31,7 @@ static const struct {
-       &panthor_kmod_ops,
-    },
- };
+ #ifdef HAVE_PANFROST_VDRM
+@@ -51,6 +54,7 @@ pan_kmod_backend_is_enabled(const char *enabled_backends, const char *backend)
+    return !strcmp(enabled_backends, "all") ||
+           comma_separated_list_contains(enabled_backends, backend);
+ }
 +#endif
  
  static void *
  default_zalloc(const struct pan_kmod_allocator *allocator, size_t size,
-@@ -47,6 +51,7 @@ static const struct pan_kmod_allocator default_allocator = {
+@@ -70,6 +74,7 @@ static const struct pan_kmod_allocator default_allocator = {
     .free = default_free,
  };
  
@@ -112,15 +113,15 @@ index 9ca5299..a88d9ad 100644
  struct pan_kmod_dev *
  pan_kmod_dev_create(int fd, uint32_t flags,
                      const struct pan_kmod_allocator *allocator)
-@@ -80,6 +85,7 @@ pan_kmod_dev_create(int fd, uint32_t flags,
-    drmFreeVersion(version);
+@@ -92,6 +97,7 @@ pan_kmod_dev_create(int fd, uint32_t flags,
+ 
     return dev;
  }
 +#endif
  
  struct pan_kmod_dev *
  pan_kmod_dev_create_native(const struct pan_kmod_ops *ops, uint32_t flags,
-@@ -167,6 +173,10 @@ pan_kmod_bo_put(struct pan_kmod_bo *bo)
+@@ -180,6 +186,10 @@ pan_kmod_bo_put(struct pan_kmod_bo *bo)
  struct pan_kmod_bo *
  pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd)
  {
@@ -128,19 +129,19 @@ index 9ca5299..a88d9ad 100644
 +   (void)dev; (void)fd;
 +   return NULL;
 +#else
-    struct pan_kmod_bo *bo = NULL;
-    struct pan_kmod_bo **slot;
+    struct pan_kmod_bo *bo;
  
-@@ -212,6 +222,7 @@ err_unlock:
-    simple_mtx_unlock(&dev->handle_to_bo.lock);
+    simple_mtx_lock(&dev->handle_to_bo.lock);
+@@ -190,6 +200,7 @@ pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd)
  
-    return NULL;
+ 
+    return bo;
 +#endif
  }
  
  void
 diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
-index d1fc643..81d523b 100644
+index d35b456..699cc03 100644
 --- a/src/panfrost/lib/kmod/pan_kmod.h
 +++ b/src/panfrost/lib/kmod/pan_kmod.h
 @@ -22,7 +22,9 @@
@@ -153,7 +154,7 @@ index d1fc643..81d523b 100644
  
  #include "drm-uapi/drm.h"
  
-@@ -652,11 +654,19 @@ struct pan_kmod_dev {
+@@ -648,11 +650,19 @@ struct pan_kmod_dev {
     void *user_priv;
  };
  
@@ -173,7 +174,7 @@ index d1fc643..81d523b 100644
  
  struct pan_kmod_dev *
  pan_kmod_dev_create(int fd, uint32_t flags,
-@@ -744,6 +750,10 @@ struct pan_kmod_bo *pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd);
+@@ -740,7 +750,12 @@ struct pan_kmod_bo *pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd);
  static inline int
  pan_kmod_bo_export(struct pan_kmod_bo *bo)
  {
@@ -181,22 +182,28 @@ index d1fc643..81d523b 100644
 +   (void)bo;
 +   return -1;
 +#else
-    PAN_TRACE_FUNC(PAN_TRACE_LIB_KMOD);
- 
-    int fd;
-@@ -761,6 +771,7 @@ pan_kmod_bo_export(struct pan_kmod_bo *bo)
- 
-    bo->flags |= PAN_KMOD_BO_FLAG_EXPORTED;
-    return fd;
+    return bo->dev->ops->bo_export(bo);
 +#endif
  }
  
  static inline bool
+diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
+index e50815f..aceb0fb 100644
+--- a/src/panfrost/vulkan/meson.build
++++ b/src/panfrost/vulkan/meson.build
+@@ -215,6 +215,7 @@ libvulkan_panfrost = shared_library(
+   link_whole : [panvk_per_arch_libs],
+   link_with : [
+     libpanfrost_shared,
++    (get_option('panfrost-native-only') ? [libvulkan_wsi] : []),
+     libpanfrost_decode,
+     libpanfrost_lib,
+     libpanfrost_compiler,
 diff --git a/src/panfrost/vulkan/panvk_image.c b/src/panfrost/vulkan/panvk_image.c
-index 892f301..4ffa58a 100644
+index 2bcd5b0..23ad87b 100644
 --- a/src/panfrost/vulkan/panvk_image.c
 +++ b/src/panfrost/vulkan/panvk_image.c
-@@ -734,11 +734,13 @@ panvk_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
+@@ -780,11 +780,13 @@ panvk_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                                                  pImage);
     }
  
@@ -210,7 +217,7 @@ index 892f301..4ffa58a 100644
  
     struct panvk_image *image =
        vk_image_create(&dev->vk, pCreateInfo, pAllocator, sizeof(*image));
-@@ -1338,12 +1340,14 @@ panvk_image_bind(struct panvk_device *dev,
+@@ -1392,12 +1394,14 @@ panvk_image_bind(struct panvk_device *dev,
        if (result != VK_SUCCESS)
           return result;
  #else
@@ -225,14 +232,3 @@ index 892f301..4ffa58a 100644
  #endif
        mem = panvk_device_memory_from_handle(mem_handle);
        offset = 0;
-diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
---- a/src/panfrost/vulkan/meson.build
-+++ b/src/panfrost/vulkan/meson.build
-@@ -217,6 +217,7 @@ libvulkan_panfrost = shared_library(
-   link_whole : [panvk_per_arch_libs],
-   link_with : [
-     libpanfrost_shared,
-+    (get_option('panfrost-native-only') ? [libvulkan_wsi] : []),
-     libpanfrost_decode,
-     libpanfrost_lib,
-     libpanfrost_compiler,

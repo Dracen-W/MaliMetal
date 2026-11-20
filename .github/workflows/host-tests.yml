@@ -103,7 +103,7 @@ jobs:
             libdrm-dev python3-mako python3-yaml
 
       - name: Clone Mesa at the pinned tag
-        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+        run: git clone --depth 1 --branch mesa-26.3.1 https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: Apply the patch series
         run: |
@@ -155,7 +155,7 @@ jobs:
 
 
       - name: Clone Mesa at the pinned tag
-        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+        run: git clone --depth 1 --branch mesa-26.3.1 https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: Build the SPIR-V LLVM translator
         run: |

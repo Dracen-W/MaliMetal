@@ -1,6 +1,6 @@
 # MaliMetal patch 0007: bound the PanVK JM indirect buffer to the NativeMali BO limit.
 #
-# Base: Mesa tag mesa-26.2.6, commit 8e87a503ebd91408c88596d1b9eeb5f4c0b2088d.
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
 # Depends on 0005 (the native physical device).
 #
 # PanVK allocates its JM indirect/attribute buffer for two million vertices at
@@ -12,19 +12,17 @@
 #
 # Compiled by the mesa-panvk CI job. It has not been run on hardware.
 diff --git a/src/panfrost/vulkan/panvk_device.h b/src/panfrost/vulkan/panvk_device.h
+index 3d6cd10..3784bb5 100644
 --- a/src/panfrost/vulkan/panvk_device.h
 +++ b/src/panfrost/vulkan/panvk_device.h
-@@ -33,11 +33,11 @@
-  * As a result, for indirect and indexed draw we allocate a large buffer with
-  * alloc on fault set.
-  *
-- * The size of that buffer is calculated assuming a max of 2 millions vertices
-+ * The size of that buffer is calculated assuming a max of 1.5 million vertices
-  * and 18 attributes per vertex (16 user attributes, 2 specials)
-  */
+@@ -27,8 +27,8 @@
+ #include "util/u_printf.h"
+ #include "util/vma.h"
  
--#define PANVK_JM_MAX_VERTICES_INDIRECT                (2000000)
-+#define PANVK_JM_MAX_VERTICES_INDIRECT                (65536)
- #define PANVK_JM_MAX_PER_VTX_ATTRIBUTES_INDIRECT_SIZE (18 * 4)
+-/* 128 MiB */
+-#define PANVK_POLY_HEAP_SIZE (1 << 27)
++/* 16 MiB (bounded for NativeMali without alloc-on-fault demand paging) */
++#define PANVK_POLY_HEAP_SIZE (1 << 24)
  
  struct panvk_precomp_cache;
+ struct panvk_device_draw_context;

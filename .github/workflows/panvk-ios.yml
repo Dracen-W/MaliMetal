@@ -37,7 +37,7 @@ jobs:
           METAL2VULKAN_DIR="$PWD/.deps/metal2vulkan" ADRENOMETAL_DIR="$PWD/.deps/adrenometal" tools/build-bridge-ios.sh
 
       - name: Clone Mesa at the pinned tag
-        run: git clone --depth 1 --branch mesa-26.2.6 https://gitlab.freedesktop.org/mesa/mesa.git mesa
+        run: git clone --depth 1 --branch mesa-26.3.1 https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: Apply the patch series
         run: |

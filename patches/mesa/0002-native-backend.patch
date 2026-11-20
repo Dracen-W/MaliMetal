@@ -1,50 +1,21 @@
 diff --git a/src/panfrost/lib/kmod/meson.build b/src/panfrost/lib/kmod/meson.build
-index cb021a3..7798b19 100644
+index 20ee6db..922fc07 100644
 --- a/src/panfrost/lib/kmod/meson.build
 +++ b/src/panfrost/lib/kmod/meson.build
-@@ -5,6 +5,7 @@ libpankmod_lib_files = files(
+@@ -8,6 +8,7 @@ libpankmod_lib_code = [
    'pan_kmod.c',
    'panfrost_kmod.c',
    'panthor_kmod.c',
 +  'pan_kmod_native_mali.c',
- )
+ ]
  
- libpankmod_lib = static_library(
-diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
-index 23916f6..3e84999 100644
---- a/src/panfrost/lib/kmod/pan_kmod.h
-+++ b/src/panfrost/lib/kmod/pan_kmod.h
-@@ -493,6 +493,12 @@ struct pan_kmod_ops {
-    /* Get the file offset to use to mmap() a buffer object. */
-    off_t (*bo_get_mmap_offset)(struct pan_kmod_bo *bo);
- 
-+   /* Map a BO without a DRM fd/offset. Optional; when set,
-+    * pan_kmod_bo_mmap() uses it instead of bo_get_mmap_offset()+mmap().
-+    * `host_addr` must be NULL. Return MAP_FAILED on failure. */
-+   void *(*bo_cpu_map)(struct pan_kmod_bo *bo, int prot, int flags,
-+                       void *host_addr);
-+
-    /* Flush the pending BO map syncs. */
-    int (*flush_bo_map_syncs)(struct pan_kmod_dev *dev);
- 
-@@ -768,6 +774,11 @@ pan_kmod_bo_mmap(struct pan_kmod_bo *bo, int prot, int flags, void *host_addr)
-    if (bo->flags & PAN_KMOD_BO_FLAG_NO_MMAP)
-       return MAP_FAILED;
- 
-+   /* A backend without a DRM offset may still be able to map the BO through
-+    * its own kernel interface. It is not a made-up mmap offset. */
-+   if (bo->dev->ops->bo_cpu_map)
-+      return bo->dev->ops->bo_cpu_map(bo, prot, flags, host_addr);
-+
-    mmap_offset = bo->dev->ops->bo_get_mmap_offset(bo);
-    if (mmap_offset < 0)
-       return MAP_FAILED;
+ if with_panfrost_vdrm
 diff --git a/src/panfrost/lib/kmod/pan_kmod_native_mali.c b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
 new file mode 100644
-index 0000000..44c3210
+index 0000000..9404199
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,486 @@
+@@ -0,0 +1,478 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -249,16 +220,9 @@ index 0000000..44c3210
 +   return false;
 +}
 +
-+static off_t
-+native_mali_bo_get_mmap_offset(struct pan_kmod_bo *bo)
-+{
-+   (void)bo;
-+   return (off_t)-1;
-+}
-+
 +static void *
-+native_mali_bo_cpu_map(struct pan_kmod_bo *bo, int prot, int flags,
-+                       void *host_addr)
++native_mali_bo_mmap(struct pan_kmod_bo *bo, int prot, int flags,
++                    void *host_addr)
 +{
 +   struct native_mali_bo *nbo = to_native_bo(bo);
 +   struct NativeMaliKmod *kmod = to_native_dev(bo->dev)->kmod;
@@ -365,16 +329,16 @@ index 0000000..44c3210
 +}
 +
 +static struct pan_kmod_bo *
-+native_mali_bo_import(struct pan_kmod_dev *dev, uint32_t handle, uint64_t size)
++native_mali_bo_import(struct pan_kmod_dev *dev, int fd)
 +{
-+   (void)dev; (void)handle; (void)size;
++   (void)dev; (void)fd;
 +   return NULL;
 +}
 +
 +static int
-+native_mali_bo_export(struct pan_kmod_bo *bo, int dmabuf_fd)
++native_mali_bo_export(struct pan_kmod_bo *bo)
 +{
-+   (void)bo; (void)dmabuf_fd;
++   (void)bo;
 +   return -1;
 +}
 +
@@ -455,8 +419,7 @@ index 0000000..44c3210
 +   .bo_free = native_mali_bo_free,
 +   .bo_import = native_mali_bo_import,
 +   .bo_export = native_mali_bo_export,
-+   .bo_get_mmap_offset = native_mali_bo_get_mmap_offset,
-+   .bo_cpu_map = native_mali_bo_cpu_map,
++   .bo_mmap = native_mali_bo_mmap,
 +   .flush_bo_map_syncs = native_mali_flush_bo_map_syncs,
 +   .bo_wait = native_mali_bo_wait,
 +   .bo_make_evictable = native_mali_bo_make_evictable,

@@ -28,31 +28,31 @@ version = 1
 id = "mesa"
 role = "PanVK (Bifrost v7, JM), the Bifrost compiler and pan_kmod"
 repository = "https://gitlab.freedesktop.org/mesa/mesa"
-tag = "mesa-26.2.6"
-revision = "8e87a503ebd91408c88596d1b9eeb5f4c0b2088d"
-revision_date = "2026-10-28"
+tag = "mesa-26.3.1"
+revision = "fec8830e9c94b1d67f3d8469467d5529fb2978cd"
+revision_date = "2026-11-18"
 licence = "MIT (per-file SPDX headers; docs/license.rst)"
 patch_series = "patches/mesa"
 
 [[dependency.file]]
 path = "src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c"
-sha256 = "9a0aac3ba88728cef7baf59643485cca71e9eb841c41e87abdcbeaaf5c136703"
+sha256 = "d527067df98abca0556f97aa8190b8968eb75aa45a019310c6e3d67363fc13f3"
 
 [[dependency.file]]
 path = "src/panfrost/vulkan/panvk_physical_device.c"
-sha256 = "4a0e5ca0c6ace4141f8fd4d890e1de14668d0e2d729e0a7b991dbaa4c731190e"
+sha256 = "c460b3f423f2c3c81c6b0aa24f86ed6c3943ad8aa6eda5b8d732cda004fdbe83"
 
 [[dependency.file]]
 path = "src/panfrost/lib/kmod/pan_kmod.c"
-sha256 = "2055c0369cc1195d5128a66f9ebfee8aa8bc7c08081d63d5fb94ecef8c640dea"
+sha256 = "b1e79791ab0d79ec235c1c056b9c1de9ada6b723a416245ebfd4200ca65b49c8"
 
 [[dependency.file]]
 path = "src/panfrost/lib/kmod/pan_kmod.h"
-sha256 = "55fa7f89e5728a209fb615a26ee4099733bba29cee0695c754878f0c5dc6c4c4"
+sha256 = "b6c2bbc722f6814b00232b792d86826157b48ed41fdb0a717deecda4d332c78f"
 
 [[dependency.file]]
 path = "src/panfrost/lib/kmod/panfrost_kmod.c"
-sha256 = "87b855b43e4d76a19a53f629ee688955b82d098e97556e1966ab14e2781cf3a4"
+sha256 = "b3e913c0f3e1fc1cf28192204078ad141a1bbbfe5db73a8248e3add85e6b5592"
 
 [[dependency.file]]
 path = "docs/license.rst"
