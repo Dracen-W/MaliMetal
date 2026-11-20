@@ -1010,6 +1010,24 @@ static void completed(void *context) {
   std::lock_guard<std::mutex> lock(gCommitLock);
   CommitRecord &r=gCommitRing[commandBuffer.commitIndex%32];
   if(r.index==commandBuffer.commitIndex)r.callbackUs=took;
+  static std::atomic<uint64_t> gGpuTotalUs{0}, gGpuMaxUs{0};
+  gGpuTotalUs += took;
+  uint64_t prevMax = gGpuMaxUs.load();
+  while(took > prevMax && !gGpuMaxUs.compare_exchange_weak(prevMax, took)){}
+  const uint64_t done = gCompleted.load();
+  if(done == 1 || done == 5 || (done > 0 && (done % 25) == 0)) {
+   char p[112];
+   snprintf(p, sizeof p, "/NativeMali/PERF_c%llu_p%llu_pi%llums_gp%llums_fl%llums_wt%llums_mx%llums",
+    (unsigned long long)done,
+    (unsigned long long)gPipelines.load(),
+    (unsigned long long)(gTimePipeline.total.load() / 1000),
+    (unsigned long long)(gGpuTotalUs.load() / 1000),
+    (unsigned long long)(gTimeSurfaceFlush.total.load() / 1000),
+    (unsigned long long)((gTimeWaitCompleted.total.load() + gTimeResourceWait.total.load()) / 1000),
+    (unsigned long long)(gGpuMaxUs.load() / 1000));
+   int fd = open(p, O_RDONLY);
+   if(fd >= 0) close(fd);
+  }
  }
  [commandBuffer finish];
 }
