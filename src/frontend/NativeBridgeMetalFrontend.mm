@@ -21,6 +21,8 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <dlfcn.h>
 #include <execinfo.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <mach/mach.h>
 #include "bridge/NativeMetalObjects.h"
 #include "NativeBridgeMetalFrontend.h"
@@ -56,11 +58,27 @@ static CommitRecord gCommitRing[32];
 static std::mutex gCommitLock;
 static std::mutex gProblemLock;
 static char gLastProblems[2][200];
+static void emitProblemTrace(unsigned idx,const char *msg) {
+ const char *s=(msg && *msg)?msg:"null";
+ const size_t len=strlen(s);
+ for(size_t off=0;off<len || off==0;off+=60) {
+  char p[112];
+  snprintf(p,sizeof p,"/NativeMali/P%u_%zu_%.60s",idx,off/60,s+off);
+  for(char *q=p+12;*q;++q)if(*q=='/' || *q=='\n' || *q=='\r')*q='_';
+  int fd=open(p,O_RDONLY);
+  if(fd>=0)close(fd);
+  if(off+60>=len || off>=300)break;
+ }
+}
 static void noteProblem(NSString *what) {
- gProblems++;
- std::lock_guard<std::mutex> lock(gProblemLock);
- memcpy(gLastProblems[1],gLastProblems[0],sizeof gLastProblems[0]);
- strlcpy(gLastProblems[0],what.UTF8String?:"?",sizeof gLastProblems[0]);
+ const uint64_t idx=gProblems++;
+ const char *utf8=what.UTF8String?:"?";
+ {
+  std::lock_guard<std::mutex> lock(gProblemLock);
+  memcpy(gLastProblems[1],gLastProblems[0],sizeof gLastProblems[0]);
+  strlcpy(gLastProblems[0],utf8,sizeof gLastProblems[0]);
+ }
+ if(idx<16)emitProblemTrace((unsigned)idx,utf8);
 }
 #define NBLOG(...) do{NSString *nbText=[NSString stringWithFormat:__VA_ARGS__];NSLog(@"%@",nbText);noteProblem(nbText);}while(0)
 // The pixel formats textures were asked for (first eight distinct), with how many were refused: native_bridge_metal_formats.
@@ -1448,7 +1466,12 @@ static bool pipelineArchives(NSArray *list,std::vector<NmbBinaryArchive *> &arch
  const uint64_t pipelineBegan=nowUs();const NBCost costBegan=NBCost::now();
  NmbRenderPipeline *handle=nmb_render_pipeline_new_with_options(gDevice,p,&creation);delete p;gTimePipeline.add(pipelineBegan);
  journalRenderPipeline(d,pipelineBegan,handle?nullptr:nmb_last_error(),gJournalPath.empty()?std::string():NBCost::now().since(costBegan));
- if(!handle)return failWith<id<MTLRenderPipelineState>>(error,@"render pipeline",nil);
+ if(!handle) {
+  NBFunction *vf=[(id)d.vertexFunction isKindOfClass:[NBFunction class]]?(NBFunction *)d.vertexFunction:nil;
+  NBFunction *ff=[(id)d.fragmentFunction isKindOfClass:[NBFunction class]]?(NBFunction *)d.fragmentFunction:nil;
+  NSString *tag=[NSString stringWithFormat:@"render pipeline[%@ v=%@ f=%@]",d.label?:@"-",vf.name?:@"-",ff.name?:@"-"];
+  return failWith<id<MTLRenderPipelineState>>(error,tag,nil);
+ }
  NBRenderPipeline *state=[NBRenderPipeline new];state.handle=handle;gPipelines++;if(error)*error=nil;return (id<MTLRenderPipelineState>)state;
 }
 // The asynchronous forms make the pipeline on the caller's thread and call the handler before returning, as the library's
