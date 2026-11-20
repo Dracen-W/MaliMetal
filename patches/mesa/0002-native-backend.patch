@@ -463,7 +463,7 @@ index 0000000..9404199
 +      return NULL;
 +
 +   const struct pan_kmod_driver driver = {.version = {.major = 0, .minor = 0}};
-+   pan_kmod_dev_init(&ndev->base, -1, 0, &driver, &native_mali_ops, allocator);
++   pan_kmod_dev_init(&ndev->base, -1, 0, &driver, allocator, &native_mali_ops, NULL);
 +   ndev->kmod = kmod;
 +   ndev->next_handle = 1;
 +

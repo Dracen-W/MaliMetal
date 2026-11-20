@@ -141,20 +141,40 @@ index 9862108..e33769e 100644
  
  void
 diff --git a/src/panfrost/lib/kmod/pan_kmod.h b/src/panfrost/lib/kmod/pan_kmod.h
-index d35b456..699cc03 100644
+index d35b456..6b9e844 100644
 --- a/src/panfrost/lib/kmod/pan_kmod.h
 +++ b/src/panfrost/lib/kmod/pan_kmod.h
-@@ -22,7 +22,9 @@
+@@ -22,7 +22,29 @@
  #include <fcntl.h>
  #include <inttypes.h>
  #include <unistd.h>
 +#ifndef PAN_KMOD_NATIVE_ONLY
  #include <xf86drm.h>
++#else
++#include <stddef.h>
++typedef struct _pan_native_drm_version {
++   int version_major;
++   int version_minor;
++   char *name;
++} *drmVersionPtr;
++
++static inline drmVersionPtr
++drmGetVersion(int fd)
++{
++   (void)fd;
++   return NULL;
++}
++
++static inline void
++drmFreeVersion(drmVersionPtr version)
++{
++   (void)version;
++}
 +#endif
  
  #include "drm-uapi/drm.h"
  
-@@ -648,11 +650,19 @@ struct pan_kmod_dev {
+@@ -648,11 +670,19 @@ struct pan_kmod_dev {
     void *user_priv;
  };
  
@@ -174,7 +194,7 @@ index d35b456..699cc03 100644
  
  struct pan_kmod_dev *
  pan_kmod_dev_create(int fd, uint32_t flags,
-@@ -740,7 +750,12 @@ struct pan_kmod_bo *pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd);
+@@ -740,7 +770,12 @@ struct pan_kmod_bo *pan_kmod_bo_import(struct pan_kmod_dev *dev, int fd);
  static inline int
  pan_kmod_bo_export(struct pan_kmod_bo *bo)
  {
