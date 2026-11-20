@@ -12,10 +12,10 @@ index 20ee6db..922fc07 100644
  if with_panfrost_vdrm
 diff --git a/src/panfrost/lib/kmod/pan_kmod_native_mali.c b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
 new file mode 100644
-index 0000000..9404199
+index 0000000..59932a1
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,478 @@
+@@ -0,0 +1,495 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -407,7 +407,10 @@ index 0000000..9404199
 +{
 +   struct native_mali_dev *ndev = to_native_dev(dev);
 +
-+   pan_kmod_dev_cleanup(dev);
++   util_sparse_array_finish(&dev->handle_to_bo.array);
++   simple_mtx_destroy(&dev->handle_to_bo.lock);
++   util_dynarray_fini(&dev->pending_bo_syncs.array);
++   simple_mtx_destroy(&dev->pending_bo_syncs.lock);
 +   pan_kmod_free(dev->allocator, ndev);
 +}
 +
@@ -463,7 +466,21 @@ index 0000000..9404199
 +      return NULL;
 +
 +   const struct pan_kmod_driver driver = {.version = {.major = 0, .minor = 0}};
-+   pan_kmod_dev_init(&ndev->base, -1, 0, &driver, allocator, &native_mali_ops, NULL);
++   /* Mesa 26.3.1's pan_kmod_dev_init() bails out early when sync_ops == NULL
++    * (and clang folds the entire init away when passed a constant NULL).
++    * NativeMali uses its own panvk_native_sync and has no DRM sync_provider,
++    * so initialize pan_kmod_dev fields directly. */
++   ndev->base.fd = -1;
++   ndev->base.flags = 0;
++   ndev->base.driver = driver;
++   ndev->base.sync_ops = NULL;
++   ndev->base.ops = &native_mali_ops;
++   ndev->base.allocator = allocator;
++   util_sparse_array_init(&ndev->base.handle_to_bo.array,
++                          sizeof(struct pan_kmod_bo *), 512);
++   simple_mtx_init(&ndev->base.handle_to_bo.lock, mtx_plain);
++   util_dynarray_init(&ndev->base.pending_bo_syncs.array, NULL);
++   simple_mtx_init(&ndev->base.pending_bo_syncs.lock, mtx_plain);
 +   ndev->kmod = kmod;
 +   ndev->next_handle = 1;
 +
