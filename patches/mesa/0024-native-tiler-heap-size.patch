@@ -1,0 +1,31 @@
+# MaliMetal patch 0024: bound PanVK Bifrost tiler_heap to 16 MiB on NativeMali.
+#
+# Base: Mesa tag mesa-26.3.1, commit fec8830e9c94b1d67f3d8469467d5529fb2978cd.
+# Depends on 0005 (physical_device->native) and 0007 (PANVK_POLY_HEAP_SIZE=16 MiB).
+#
+# Linux panfrost backs tiler_heap with PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT, so
+# requesting 128 MiB only consumes virtual address space until pages fault in.
+# NativeMali currently wires the entire BO at allocation time, causing each
+# Metal client (backboardd, mediaserverd, etc.) to lock 128 MiB of wired kernel
+# RAM on device open and trigger XNU Jetsam under 1.25-1.75 GiB RAM budgets.
+# Bounding tiler_heap to 16 MiB on native saves 112 MiB per process without
+# reducing Mali-G52 rendering throughput.
+diff --git a/src/panfrost/vulkan/panvk_vX_device.c b/src/panfrost/vulkan/panvk_vX_device.c
+index cefb23c..8276911 100644
+--- a/src/panfrost/vulkan/panvk_vX_device.c
++++ b/src/panfrost/vulkan/panvk_vX_device.c
+@@ -602,8 +602,13 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+ #endif
+ 
+ #if PAN_ARCH <= 9
++   /* NativeMali wires the full BO up front (no alloc-on-fault demand paging
++    * yet); bound tiler_heap to 16 MiB (matching PANVK_POLY_HEAP_SIZE) so each
++    * Metal client does not lock 128 MiB of wired kernel RAM on device open. */
++   const size_t tiler_heap_size =
++      physical_device->native ? (16 * 1024 * 1024) : (128 * 1024 * 1024);
+    result = panvk_priv_bo_create(
+-      device, 128 * 1024 * 1024,
++      device, tiler_heap_size,
+       PAN_KMOD_BO_FLAG_NO_MMAP | PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT,
+       VK_SYSTEM_ALLOCATION_SCOPE_DEVICE, &device->tiler_heap);
+    if (result != VK_SUCCESS)

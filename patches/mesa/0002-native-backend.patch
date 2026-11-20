@@ -15,7 +15,7 @@ new file mode 100644
 index 0000000..6bb4dff
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,584 @@
+@@ -0,0 +1,583 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -60,7 +60,7 @@ index 0000000..6bb4dff
 +   void *host_ptr;
 +};
 +
-+#define NATIVE_MALI_CPU_MAP_SLOTS 512
++#define NATIVE_MALI_CPU_MAP_SLOTS 4096
 +static pthread_mutex_t g_cpu_map_lock = PTHREAD_MUTEX_INITIALIZER;
 +static struct native_mali_bo *g_cpu_map_slots[NATIVE_MALI_CPU_MAP_SLOTS];
 +
@@ -101,7 +101,8 @@ index 0000000..6bb4dff
 +   for (unsigned i = 0; i < NATIVE_MALI_CPU_MAP_SLOTS; i++) {
 +      if (g_cpu_map_slots[i] != NULL && g_cpu_map_slots[i]->cpu_addr == addr) {
 +         found = g_cpu_map_slots[i];
-+         g_cpu_map_slots[i] = NULL;
++         if (found->is_host_imported)
++            g_cpu_map_slots[i] = NULL;
 +         break;
 +      }
 +   }
@@ -112,14 +113,10 @@ index 0000000..6bb4dff
 +         found->cpu_addr = NULL;
 +         return 0;
 +      }
-+      struct NativeMaliKmod *kmod = container_of(found->base.dev, struct native_mali_dev, base)->kmod;
-+      const uint32_t token = found->cpu_token;
-+      found->cpu_addr = NULL;
-+      found->cpu_token = 0;
-+      if (token != 0) {
-+         (void)native_mali_kmod_cpu_address_unmap(kmod, token, addr);
-+         (void)native_mali_kmod_cpu_unmap(kmod, found->handle, token);
-+      }
++      /* Keep WC CPU mappings persistent until native_mali_bo_free() so repeated
++       * vkMapMemory/vkUnmapMemory cycles on 64 MiB blocks avoid thrashing
++       * IOConnectMapMemory64/UnmapMemory64 and full-BO cache maintenance. */
++      __atomic_thread_fence(__ATOMIC_SEQ_CST);
 +      return 0;
 +   }
 +
@@ -249,8 +246,10 @@ index 0000000..6bb4dff
 +      }
 +      return nbo->host_ptr;
 +   }
-+   if (host_addr != NULL || nbo->cpu_token != 0)
++   if (host_addr != NULL)
 +      return MAP_FAILED;
++   if (nbo->cpu_addr != NULL && nbo->cpu_token != 0)
++      return nbo->cpu_addr;
 +
 +   uint32_t token = 0;
 +   uint64_t bytes = 0;
