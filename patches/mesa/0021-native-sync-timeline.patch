@@ -90,9 +90,10 @@ index 208a597..315987b 100644
  
     if (native->fence == 0)
        return native->signaled ? VK_SUCCESS : VK_TIMEOUT;
-@@ -124,10 +138,12 @@ static const struct vk_sync_type native_sync_type = {
+@@ -124,10 +138,13 @@ static const struct vk_sync_type native_sync_type = {
     .size = sizeof(struct panvk_native_sync),
     .features = VK_SYNC_FEATURE_BINARY | VK_SYNC_FEATURE_GPU_WAIT |
++               VK_SYNC_FEATURE_GPU_MULTI_WAIT |
                 VK_SYNC_FEATURE_CPU_WAIT | VK_SYNC_FEATURE_CPU_RESET |
 -               VK_SYNC_FEATURE_WAIT_ANY,
 +               VK_SYNC_FEATURE_CPU_SIGNAL | VK_SYNC_FEATURE_WAIT_ANY |
