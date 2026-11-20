@@ -20,7 +20,7 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 | --- | --- | --- | --- |
 | **AdrenoMetal** | architecture, Metal frontend, C object ABI, bridge source, test model | MIT | pinned: [`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3); fetched by `tools/deps.py` for the bridge build |
 | **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `720ef1ce9ae2a2068999a8675717418b9416283e`; see below |
-| **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.2.6` / `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`; see below |
+| **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.3.1` / `fec8830e9c94b1d67f3d8469467d5529fb2978cd`; see below |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |
 | **Mesa build deps** | `libdrm` headers at build time, Python/mako for generated code, etc. | per package | not enumerated |
 | **Rust toolchain** | builds the bridge/runtime | per toolchain | not pinned; metal2vulkan requires Rust 1.98 |
@@ -61,8 +61,8 @@ repository's frontend. The local reference copy is `AdrenoMetal-reference/`
 ```text
 Mesa — PanVK + Panfrost/Bifrost + pan_kmod
   repository: https://gitlab.freedesktop.org/mesa/mesa    (canonical)
-  tag:        mesa-26.2.6
-  commit:     8e87a503ebd91408c88596d1b9eeb5f4c0b2088d    (committed 2026-10-28)
+  tag:        mesa-26.3.1
+  commit:     fec8830e9c94b1d67f3d8469467d5529fb2978cd    (committed 2026-11-18)
   licence:    MIT, per-file SPDX headers; the text is docs/license.rst
   machine:    deps/deps.toml
 ```
@@ -87,11 +87,11 @@ checkout, not assumed):
 
 | File | Verified fact | sha256 |
 | --- | --- | --- |
-| `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c` | `pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, &submit)` at :79 and :123; `.requirements = PANFROST_JD_REQ_FS` at :112; `vk_sync_type_is_drm_syncobj()` assertions at :242 and :316; `drmSyncobjCreate()` at :352 | `9a0aac3ba88728cef7baf59643485cca71e9eb841c41e87abdcbeaaf5c136703` |
-| `src/panfrost/vulkan/panvk_physical_device.c` | `create_kmod_dev()` at :74 opens the render node and requires `panfrost`/`panthor` (:87 `drmGetVersion`); `vk_drm_syncobj_get_type()` at :386; the arch switch at :462 gates arch 6/7/14 behind `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1` (:464 `case 7`, :466 the check) | `4a0e5ca0c6ace4141f8fd4d890e1de14668d0e2d729e0a7b991dbaa4c731190e` |
-| `src/panfrost/lib/kmod/pan_kmod.c` | `pan_kmod_dev_create(int fd, uint32_t flags, ...)` at :51, dispatching on `drmGetVersion(fd)` | `2055c0369cc1195d5128a66f9ebfee8aa8bc7c08081d63d5fb94ecef8c640dea` |
-| `src/panfrost/lib/kmod/pan_kmod.h` | `pan_kmod_bo_mmap()` at :750 uses `os_mmap(..., bo->dev->fd, mmap_offset)` at :765, derived from `bo_get_mmap_offset()` | `55fa7f89e5728a209fb615a26ee4099733bba29cee0695c754878f0c5dc6c4c4` |
-| `src/panfrost/lib/kmod/panfrost_kmod.c` | the `panfrost` backend of `pan_kmod_ops`, 19 `DRM_IOCTL_PANFROST_*` uses | `87b855b43e4d76a19a53f629ee688955b82d098e97556e1966ab14e2781cf3a4` |
+| `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c` | `pan_kmod_ioctl(dev->drm_fd, DRM_IOCTL_PANFROST_SUBMIT, &submit)` at :79 and :123; `.requirements = PANFROST_JD_REQ_FS` at :112; `vk_sync_type_is_drm_syncobj()` assertions at :242 and :316; `drmSyncobjCreate()` at :352 | `d527067df98abca0556f97aa8190b8968eb75aa45a019310c6e3d67363fc13f3` |
+| `src/panfrost/vulkan/panvk_physical_device.c` | `create_kmod_dev()` at :74 opens the render node and requires `panfrost`/`panthor` (:87 `drmGetVersion`); `vk_drm_syncobj_get_type()` at :386; the arch switch at :462 gates arch 6/7/14 behind `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1` (:464 `case 7`, :466 the check) | `c460b3f423f2c3c81c6b0aa24f86ed6c3943ad8aa6eda5b8d732cda004fdbe83` |
+| `src/panfrost/lib/kmod/pan_kmod.c` | `pan_kmod_dev_create(int fd, uint32_t flags, ...)` at :51, dispatching on `drmGetVersion(fd)` | `b1e79791ab0d79ec235c1c056b9c1de9ada6b723a416245ebfd4200ca65b49c8` |
+| `src/panfrost/lib/kmod/pan_kmod.h` | `pan_kmod_bo_mmap()` at :750 uses `os_mmap(..., bo->dev->fd, mmap_offset)` at :765, derived from `bo_get_mmap_offset()` | `b6c2bbc722f6814b00232b792d86826157b48ed41fdb0a717deecda4d332c78f` |
+| `src/panfrost/lib/kmod/panfrost_kmod.c` | the `panfrost` backend of `pan_kmod_ops`, 19 `DRM_IOCTL_PANFROST_*` uses | `b3e913c0f3e1fc1cf28192204078ad141a1bbbfe5db73a8248e3add85e6b5592` |
 | `docs/license.rst` | the Mesa licence text | `0d1a0472ecc81830e75c20d59b0ea02841e3db21255e0ebad97ab682c54d6615` |
 
 Two facts worth keeping in mind:
@@ -107,7 +107,7 @@ Two facts worth keeping in mind:
 **Reproduce (never commit the checkout):**
 
 ```sh
-git clone --depth 1 --branch mesa-26.2.6 --filter=blob:none \
+git clone --depth 1 --branch mesa-26.3.1 --filter=blob:none \
     https://gitlab.freedesktop.org/mesa/mesa.git mesa
 python3 tools/deps.py verify --checkout mesa="$PWD/mesa"
 ```
@@ -224,6 +224,7 @@ open item in `docs/OPEN_QUESTIONS.md`.
 ## Pin history
 
 ```text
+2026-11-20  mesa-26.3.1  fec8830e  upgraded pin for PanVK 26.3.1 & Bifrost v7 fixes
 2026-10-31  mesa-26.2.6  8e87a503  first accepted pin; release tag, official GitLab
 2026-10-31  (provisional) e24dc5bd  rejected: GitHub mirror, 2026-05-29, months behind
 2026-10-31  metal2vulkan  720ef1c   accepted: UniXNU-qualified base; 16 bridge patches apply

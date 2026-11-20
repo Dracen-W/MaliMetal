@@ -42,7 +42,7 @@ AdrenoMetal — the upstream project this port is based on
     src/frontend/NativeBridgeMetalFrontend.h
       sha256 50e6fbc267b7d77d46bce3cd86b0842bce738f5a4a0c5cdd2b1054d10477bfc2
     src/frontend/NativeBridgeMetalFrontend.mm
-      sha256 eadbba1bf6cd5823199546402cc58904154c0775701d9c691ddc19ba882fd996
+      sha256 a25ff862682c3efecc9d7aa5a6a1aabafd0491bdf1892575bb378ee8299be5a1
   They keep their SPDX-License-Identifier: MIT lines; tests/test_pins.py
   enforces the hashes and the attribution.
 
@@ -82,8 +82,8 @@ Third-party material
    Copyright © 2019-2026 Collabora Ltd., Alyssa Rosenzweig, Broadcom and other
    Mesa contributors.
    Used as a pinned dependency through a patch series; no Mesa source is
-   committed in this repository. The pinned base is tag mesa-26.2.6, commit
-   8e87a503ebd91408c88596d1b9eeb5f4c0b2088d, from
+   committed in this repository. The pinned base is tag mesa-26.3.1, commit
+   fec8830e9c94b1d67f3d8469467d5529fb2978cd, from
    https://gitlab.freedesktop.org/mesa/mesa (canonical; the GitHub mirror is not
    used for the pin). The patches keep Mesa's MIT headers.
 

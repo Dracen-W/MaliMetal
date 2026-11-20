@@ -105,7 +105,7 @@ speaks `NativeMaliABI.h`.
 | Area | State |
 | --- | --- |
 | Repository scaffold, design, porting map | done |
-| Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.2.6`, `metal2vulkan` `720ef1c`; the bridge compiles against it with the 16-patch series |
+| Dependency pin (metal2vulkan, Mesa/PanVK) | pinned: Mesa `mesa-26.3.1`, `metal2vulkan` `720ef1c`; the bridge compiles against it with the 16-patch series |
 | `pan_kmod` backend seam | **chosen: Option A**; patches 0001–0004 compile (device, backend, submit/wait, native queue); device enumeration and vk_sync remain |
 | Userspace `NativeMali` ABI client | **MM2 complete for v2**: methods, lifecycle, fences, faults, IOKit transport glue, scripted-service integration test |
 | PanVK device creation on `NativeMali` | blocked on kernel and seam |
@@ -255,7 +255,7 @@ means for PanVK.
 | `MaliMetal` (this) | userspace Metal frontend and Vulkan backend seam | separate git repository |
 | `UniXNU-merlinx` | OS image, ADT, build orchestration, display driver | do not modify from here |
 | `AdrenoMetal` | MIT reference for architecture and reusable frontend | never commit the copy |
-| Mesa | PanVK and the Bifrost compiler | pinned to `mesa-26.2.6` (GitLab); patch series in `patches/mesa/`; never commit a checkout |
+| Mesa | PanVK and the Bifrost compiler | pinned to `mesa-26.3.1` (GitLab); patch series in `patches/mesa/`; never commit a checkout |
 | `metal2vulkan` | Metal API over Vulkan | linked unmodified, pinned revision |
 
 ## References
@@ -265,8 +265,8 @@ means for PanVK.
 - `AdrenoMetal-reference/README.md` and `AGENTS.md` for the model.
 - Mesa `src/panfrost/vulkan/panvk_physical_device.c`,
   `src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c`,
-  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` at tag `mesa-26.2.6`
-  (`8e87a503`), from `https://gitlab.freedesktop.org/mesa/mesa`, for the backend
+  `src/panfrost/lib/kmod/pan_kmod.h` and `panfrost_kmod.c` at tag `mesa-26.3.1`
+  (`fec8830e`), from `https://gitlab.freedesktop.org/mesa/mesa`, for the backend
   assumptions. The pinned files and their hashes are in `docs/DEPENDENCIES.md`
   and `deps/deps.toml`.
 

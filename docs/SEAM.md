@@ -2,8 +2,8 @@
 # Seam design: Option A (Mesa patch series)
 
 Status: **design only**. No Mesa patch exists yet. The Mesa base is tag
-`mesa-26.2.6`, commit `8e87a503ebd91408c88596d1b9eeb5f4c0b2088d`
-(2026-10-28), from `https://gitlab.freedesktop.org/mesa/mesa`; the files and
+`mesa-26.3.1`, commit `fec8830e9c94b1d67f3d8469467d5529fb2978cd`
+(2026-11-18), from `https://gitlab.freedesktop.org/mesa/mesa`; the files and
 sha256 hashes this design was checked against are in `deps/deps.toml` and
 `docs/DEPENDENCIES.md`. Every file/function/line reference below is from that
 commit. MM3 must run `python3 tools/deps.py verify` first and stop on a
