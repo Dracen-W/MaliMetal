@@ -36,6 +36,8 @@ public:
     NativeMaliError bo_free(uint64_t handle);
     NativeMaliError bo_cpu_map(uint64_t handle, uint32_t *token, uint64_t *bytes);
     NativeMaliError bo_cpu_unmap(uint64_t handle, uint32_t token);
+    NativeMaliError bo_import_host(uint64_t address, uint64_t bytes, uint64_t *handle);
+    NativeMaliError bo_sync(uint64_t handle, uint64_t offset, uint64_t bytes, uint32_t op);
 
     /* Jobs and fences. `job_chain` is a GPU address in memory this client has
      * already mapped, aligned to NativeMaliAbiJobChainAlign. */

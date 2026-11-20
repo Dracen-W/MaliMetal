@@ -21,7 +21,7 @@ void expect(bool condition, const char *what) {
     }
 }
 
-constexpr size_t kExpectedMethods = 11;
+constexpr size_t kExpectedMethods = 13;
 
 } /* namespace */
 

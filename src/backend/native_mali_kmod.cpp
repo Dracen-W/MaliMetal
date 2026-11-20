@@ -283,6 +283,23 @@ NativeMaliResult native_mali_kmod_alloc(NativeMaliKmod *kmod, uint64_t bytes,
     return to_result(kmod->device.alloc(bytes, handle));
 }
 
+NativeMaliResult native_mali_kmod_import_host(NativeMaliKmod *kmod, const void *host_ptr,
+                                              uint64_t bytes, uint64_t *handle) {
+    if (kmod == nullptr || host_ptr == nullptr) {
+        return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+    }
+    return to_result(kmod->device.import_host(
+        static_cast<uint64_t>(reinterpret_cast<uintptr_t>(host_ptr)), bytes, handle));
+}
+
+NativeMaliResult native_mali_kmod_bo_sync(NativeMaliKmod *kmod, uint64_t handle, uint64_t offset,
+                                          uint64_t bytes, uint32_t op) {
+    if (kmod == nullptr) {
+        return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+    }
+    return to_result(kmod->device.sync_bo(handle, offset, bytes, op));
+}
+
 NativeMaliResult native_mali_kmod_map(NativeMaliKmod *kmod, uint64_t handle,
                                       uint32_t permissions, uint64_t *iova) {
     if (kmod == nullptr) {

@@ -50,6 +50,12 @@ enum {
     NATIVE_MALI_PERMISSION_WRITE = 1u << 1,
 };
 
+enum {
+    NATIVE_MALI_SYNC_CLEAN = 1u,
+    NATIVE_MALI_SYNC_INVALIDATE = 2u,
+    NATIVE_MALI_SYNC_CLEAN_INVALIDATE = 3u,
+};
+
 typedef enum NativeMaliResult {
     NATIVE_MALI_RESULT_OK = 0,
     NATIVE_MALI_RESULT_INVALID_ARGUMENT,
@@ -127,6 +133,11 @@ const char *native_mali_kmod_error_name(NativeMaliResult result) MALIMETAL_KMOD_
 /* Buffers. `bytes` must be a nonzero multiple of 4096 and at most
  * props->max_bo_bytes. */
 NativeMaliResult native_mali_kmod_alloc(NativeMaliKmod *kmod, uint64_t bytes, uint64_t *handle) MALIMETAL_KMOD_LINKAGE;
+NativeMaliResult native_mali_kmod_import_host(NativeMaliKmod *kmod, const void *host_ptr,
+                                              uint64_t bytes,
+                                              uint64_t *handle) MALIMETAL_KMOD_LINKAGE;
+NativeMaliResult native_mali_kmod_bo_sync(NativeMaliKmod *kmod, uint64_t handle, uint64_t offset,
+                                          uint64_t bytes, uint32_t op) MALIMETAL_KMOD_LINKAGE;
 NativeMaliResult native_mali_kmod_map(NativeMaliKmod *kmod, uint64_t handle, uint32_t permissions,
                                       uint64_t *iova) MALIMETAL_KMOD_LINKAGE;
 /* `guard_fence` is 0 when no submitted job can still reference the buffer. */

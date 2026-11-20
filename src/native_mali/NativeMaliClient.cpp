@@ -185,6 +185,46 @@ NativeMaliError NativeMaliClient::bo_cpu_unmap(uint64_t handle, uint32_t token) 
     return call(NativeMaliMethodBoCpuUnmap, &request, sizeof(request), nullptr, 0);
 }
 
+NativeMaliError NativeMaliClient::bo_import_host(uint64_t address, uint64_t bytes,
+                                                 uint64_t *handle) {
+    if (handle == nullptr || address == 0 || (address % NativeMaliAbiPageBytes) != 0 ||
+        bytes == 0 || (bytes % NativeMaliAbiPageBytes) != 0 ||
+        bytes > NATIVE_MALI_ABI_MAX_BO_BYTES || address > UINT64_MAX - bytes) {
+        return NativeMaliError::InvalidArgument;
+    }
+    NativeMaliAbiBoImportHost request{};
+    request.address = address;
+    request.bytes = bytes;
+    NativeMaliAbiBoImportHostReply reply{};
+    const NativeMaliError error = call(NativeMaliMethodBoImportHost, &request, sizeof(request),
+                                       &reply, sizeof(reply));
+    if (error != NativeMaliError::None) {
+        return error;
+    }
+    if (reply.handle == 0) {
+        return NativeMaliError::Unsupported;
+    }
+    *handle = reply.handle;
+    return NativeMaliError::None;
+}
+
+NativeMaliError NativeMaliClient::bo_sync(uint64_t handle, uint64_t offset, uint64_t bytes,
+                                          uint32_t op) {
+    if (handle == 0 || bytes == 0) {
+        return NativeMaliError::InvalidArgument;
+    }
+    if (op != NativeMaliBoSyncClean && op != NativeMaliBoSyncInvalidate &&
+        op != NativeMaliBoSyncCleanInvalidate) {
+        return NativeMaliError::InvalidArgument;
+    }
+    NativeMaliAbiBoSync request{};
+    request.handle = handle;
+    request.offset = offset;
+    request.bytes = bytes;
+    request.op = op;
+    return call(NativeMaliMethodBoSync, &request, sizeof(request), nullptr, 0);
+}
+
 NativeMaliError NativeMaliClient::submit(uint64_t job_chain, uint64_t wait_fence,
                                          uint64_t wait_timeout_ns, uint64_t *fence) {
     if (fence == nullptr || job_chain == 0) {

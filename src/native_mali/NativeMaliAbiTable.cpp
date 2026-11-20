@@ -29,6 +29,9 @@ static_assert(sizeof(NativeMaliAbiSubmit) == 32, "submit record");
 static_assert(sizeof(NativeMaliAbiSubmitReply) == 8, "submit reply");
 static_assert(sizeof(NativeMaliAbiWaitFence) == 16, "wait record");
 static_assert(sizeof(NativeMaliAbiStatus) == 16, "status record");
+static_assert(sizeof(NativeMaliAbiBoImportHost) == 24, "import host record");
+static_assert(sizeof(NativeMaliAbiBoImportHostReply) == 8, "import host reply");
+static_assert(sizeof(NativeMaliAbiBoSync) == 32, "bo sync record");
 
 } /* namespace */
 
@@ -51,6 +54,10 @@ const NativeMaliAbiMethodRecord kNativeMaliAbiMethods[] = {
     {NativeMaliMethodWaitFence, "WaitFence", kBytes(sizeof(NativeMaliAbiWaitFence)), 0},
     {NativeMaliMethodGetStatus, "GetStatus", 0, kBytes(sizeof(NativeMaliAbiStatus))},
     {NativeMaliMethodReset, "Reset", 0, 0},
+    {NativeMaliMethodBoImportHost, "BoImportHost",
+     kBytes(sizeof(NativeMaliAbiBoImportHost)),
+     kBytes(sizeof(NativeMaliAbiBoImportHostReply))},
+    {NativeMaliMethodBoSync, "BoSync", kBytes(sizeof(NativeMaliAbiBoSync)), 0},
 };
 
 const size_t kNativeMaliAbiMethodCount =

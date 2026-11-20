@@ -32,6 +32,8 @@ public:
                      NativeMaliIovaAllocator &iova, NativeMaliFenceTracker &fences);
 
     NativeMaliError alloc(uint64_t bytes, uint64_t *handle);
+    NativeMaliError import_host(uint64_t address, uint64_t bytes, uint64_t *handle);
+    NativeMaliError sync_bo(uint64_t handle, uint64_t offset, uint64_t bytes, uint32_t op);
 
     /* Reserve an IOVA for the buffer and map it. `permissions` must include
      * NativeMaliBoRead. */

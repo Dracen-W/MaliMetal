@@ -26,6 +26,30 @@ NativeMaliError NativeMaliDevice::alloc(uint64_t bytes, uint64_t *handle) {
     return NativeMaliError::None;
 }
 
+NativeMaliError NativeMaliDevice::import_host(uint64_t address, uint64_t bytes, uint64_t *handle) {
+    uint64_t imported = 0;
+    const NativeMaliError error = client_.bo_import_host(address, bytes, &imported);
+    if (error != NativeMaliError::None) {
+        return error;
+    }
+    if (!buffers_.add(imported, bytes)) {
+        const NativeMaliError rollback = client_.bo_free(imported);
+        return rollback == NativeMaliError::None ? NativeMaliError::Unsupported : rollback;
+    }
+    *handle = imported;
+    return NativeMaliError::None;
+}
+
+NativeMaliError NativeMaliDevice::sync_bo(uint64_t handle, uint64_t offset, uint64_t bytes,
+                                          uint32_t op) {
+    const NativeMaliBo *buffer = buffers_.find(handle);
+    if (buffer == nullptr || bytes == 0 || offset > buffer->bytes ||
+        bytes > buffer->bytes - offset) {
+        return NativeMaliError::InvalidArgument;
+    }
+    return client_.bo_sync(handle, offset, bytes, op);
+}
+
 NativeMaliError NativeMaliDevice::map(uint64_t handle, uint32_t permissions, uint64_t *iova) {
     const NativeMaliBo *buffer = buffers_.find(handle);
     if (buffer == nullptr || buffer->mapped || iova == nullptr) {

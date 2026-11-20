@@ -12,10 +12,10 @@ index 20ee6db..922fc07 100644
  if with_panfrost_vdrm
 diff --git a/src/panfrost/lib/kmod/pan_kmod_native_mali.c b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
 new file mode 100644
-index 0000000..59932a1
+index 0000000..6bb4dff
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.c
-@@ -0,0 +1,495 @@
+@@ -0,0 +1,584 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -56,6 +56,8 @@ index 0000000..59932a1
 +   uint64_t handle;
 +   uint32_t cpu_token;
 +   void *cpu_addr;
++   bool is_host_imported;
++   void *host_ptr;
 +};
 +
 +#define NATIVE_MALI_CPU_MAP_SLOTS 512
@@ -106,6 +108,10 @@ index 0000000..59932a1
 +   pthread_mutex_unlock(&g_cpu_map_lock);
 +
 +   if (found != NULL) {
++      if (found->is_host_imported) {
++         found->cpu_addr = NULL;
++         return 0;
++      }
 +      struct NativeMaliKmod *kmod = container_of(found->base.dev, struct native_mali_dev, base)->kmod;
 +      const uint32_t token = found->cpu_token;
 +      found->cpu_addr = NULL;
@@ -190,7 +196,12 @@ index 0000000..59932a1
 +   struct native_mali_bo *nbo = to_native_bo(bo);
 +   struct NativeMaliKmod *kmod = to_native_dev(bo->dev)->kmod;
 +
-+   if (nbo->cpu_token != 0) {
++   if (nbo->is_host_imported) {
++      if (nbo->cpu_addr != NULL) {
++         native_mali_cpu_map_untrack(nbo);
++         nbo->cpu_addr = NULL;
++      }
++   } else if (nbo->cpu_token != 0) {
 +      native_mali_cpu_map_untrack(nbo);
 +      if (nbo->cpu_addr != NULL) {
 +         (void)native_mali_kmod_cpu_address_unmap(kmod, nbo->cpu_token, nbo->cpu_addr);
@@ -229,6 +240,15 @@ index 0000000..59932a1
 +
 +   (void)prot;
 +   (void)flags;
++   if (nbo->is_host_imported) {
++      if (host_addr != NULL && host_addr != nbo->host_ptr)
++         return MAP_FAILED;
++      if (nbo->cpu_addr == NULL) {
++         nbo->cpu_addr = nbo->host_ptr;
++         native_mali_cpu_map_track(nbo);
++      }
++      return nbo->host_ptr;
++   }
 +   if (host_addr != NULL || nbo->cpu_token != 0)
 +      return MAP_FAILED;
 +
@@ -314,8 +334,75 @@ index 0000000..59932a1
 +static int
 +native_mali_flush_bo_map_syncs(struct pan_kmod_dev *dev)
 +{
-+   (void)dev;
++   struct native_mali_dev *ndev = to_native_dev(dev);
++
++   util_dynarray_foreach(&dev->pending_bo_syncs.array,
++                         struct pan_kmod_deferred_bo_sync, sync) {
++      if (!sync->bo || sync->size == 0 || sync->start >= sync->bo->size)
++         continue;
++      struct native_mali_bo *nbo = to_native_bo(sync->bo);
++      uint64_t len = sync->size;
++      if (len > sync->bo->size - sync->start)
++         len = sync->bo->size - sync->start;
++      const uint32_t op =
++         sync->type == PAN_KMOD_BO_SYNC_CPU_CACHE_FLUSH
++            ? NATIVE_MALI_SYNC_CLEAN
++            : NATIVE_MALI_SYNC_CLEAN_INVALIDATE;
++      (void)native_mali_kmod_bo_sync(ndev->kmod, nbo->handle, sync->start, len,
++                                     op);
++   }
++
 +   return 0;
++}
++
++struct pan_kmod_bo *
++pan_kmod_native_mali_bo_import_host(struct pan_kmod_dev *dev,
++                                    struct pan_kmod_vm *exclusive_vm,
++                                    void *host_ptr, uint64_t size,
++                                    uint32_t flags)
++{
++   if (!dev || !host_ptr || size == 0)
++      return NULL;
++   if (((uintptr_t)host_ptr & 4095u) != 0)
++      return NULL;
++   if (size > UINT64_MAX - 4095u)
++      return NULL;
++
++   const uint64_t aligned_size = (size + 4095u) & ~4095ull;
++   struct native_mali_dev *ndev = to_native_dev(dev);
++   uint64_t handle = 0;
++   if (native_mali_kmod_import_host(ndev->kmod, host_ptr, aligned_size,
++                                    &handle) != NATIVE_MALI_RESULT_OK)
++      return NULL;
++
++   struct native_mali_bo *bo = pan_kmod_dev_alloc(dev, sizeof(*bo));
++   if (!bo) {
++      (void)native_mali_kmod_free(ndev->kmod, handle, 0);
++      return NULL;
++   }
++
++   const uint32_t bo_flags =
++      flags | PAN_KMOD_BO_FLAG_IMPORTED | PAN_KMOD_BO_FLAG_WB_MMAP;
++   simple_mtx_lock(&dev->handle_to_bo.lock);
++   const uint32_t local_handle = ndev->next_handle++;
++   pan_kmod_bo_init(&bo->base, dev, exclusive_vm, aligned_size, bo_flags,
++                    local_handle);
++   bo->handle = handle;
++   bo->is_host_imported = true;
++   bo->host_ptr = host_ptr;
++
++   struct pan_kmod_bo **slot =
++      util_sparse_array_get(&dev->handle_to_bo.array, bo->base.handle);
++   if (!slot) {
++      simple_mtx_unlock(&dev->handle_to_bo.lock);
++      pan_kmod_bo_cleanup(&bo->base);
++      pan_kmod_dev_free(dev, bo);
++      (void)native_mali_kmod_free(ndev->kmod, handle, 0);
++      return NULL;
++   }
++   *slot = &bo->base;
++   simple_mtx_unlock(&dev->handle_to_bo.lock);
++   return &bo->base;
 +}
 +
 +static void
@@ -471,7 +558,9 @@ index 0000000..59932a1
 +    * NativeMali uses its own panvk_native_sync and has no DRM sync_provider,
 +    * so initialize pan_kmod_dev fields directly. */
 +   ndev->base.fd = -1;
-+   ndev->base.flags = 0;
++   /* Darwin EL0 traps DC CVAC/CIVAC, so route WB-mapped and imported host BO
++    * cache syncs through EL1 via native_mali_flush_bo_map_syncs(). */
++   ndev->base.flags = PAN_KMOD_DEV_FLAG_MMAP_SYNC_THROUGH_KERNEL;
 +   ndev->base.driver = driver;
 +   ndev->base.sync_ops = NULL;
 +   ndev->base.ops = &native_mali_ops;
@@ -513,10 +602,10 @@ index 0000000..59932a1
 +}
 diff --git a/src/panfrost/lib/kmod/pan_kmod_native_mali.h b/src/panfrost/lib/kmod/pan_kmod_native_mali.h
 new file mode 100644
-index 0000000..096d519
+index 0000000..1f1f106
 --- /dev/null
 +++ b/src/panfrost/lib/kmod/pan_kmod_native_mali.h
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,28 @@
 +/*
 + * Copyright © 2026 MaliMetal contributors
 + * SPDX-License-Identifier: MIT
@@ -537,3 +626,11 @@ index 0000000..096d519
 +struct pan_kmod_dev *
 +pan_kmod_dev_create_native_mali(struct NativeMaliKmod *kmod,
 +                                const struct pan_kmod_allocator *allocator);
++
++/* Pin a caller-owned host allocation (4 KiB aligned) zero-copy into a
++ * pan_kmod_bo for VK_EXT_external_memory_host / IOSurface import. */
++struct pan_kmod_bo *
++pan_kmod_native_mali_bo_import_host(struct pan_kmod_dev *dev,
++                                    struct pan_kmod_vm *exclusive_vm,
++                                    void *host_ptr, uint64_t size,
++                                    uint32_t flags);
