@@ -8,7 +8,7 @@
 # WSI archives needed by the remaining image/runtime code. This is a build and
 # link correction for the target; it does not claim hardware validation.
 diff --git a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
-index 6743d3e..3e45745 100644
+index 6743d3e..01ee69e 100644
 --- a/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
 +++ b/src/panfrost/vulkan/jm/panvk_vX_gpu_queue.c
 @@ -321,6 +321,7 @@ panvk_per_arch(gpu_queue_submit_native)(struct vk_queue *vk_queue,
@@ -28,6 +28,25 @@ index 6743d3e..3e45745 100644
  
  VkResult
  panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+@@ -450,6 +453,10 @@ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+       return VK_SUCCESS;
+    }
+ 
++#ifdef PAN_KMOD_NATIVE_ONLY
++   result = panvk_error(device, VK_ERROR_INITIALIZATION_FAILED);
++   goto err_finish_queue;
++#else
+    int ret = pan_kmod_sync_create(device->kmod.dev, DRM_SYNCOBJ_CREATE_SIGNALED,
+                                   &queue->sync);
+    if (ret) {
+@@ -460,6 +467,7 @@ panvk_per_arch(create_gpu_queue)(struct panvk_device *device,
+    queue->vk.driver_submit = panvk_per_arch(gpu_queue_submit);
+    *out_queue = &queue->vk;
+    return VK_SUCCESS;
++#endif
+ 
+ err_finish_queue:
+    vk_queue_finish(&queue->vk);
 diff --git a/src/panfrost/vulkan/meson.build b/src/panfrost/vulkan/meson.build
 index aceb0fb..2a4ec03 100644
 --- a/src/panfrost/vulkan/meson.build
