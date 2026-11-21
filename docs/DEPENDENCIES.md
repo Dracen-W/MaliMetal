@@ -18,8 +18,8 @@ A build must use `--require-all` and refuse to run when anything is `SKIP` or
 
 | Dependency | Role | Licence | State |
 | --- | --- | --- | --- |
-| **AdrenoMetal** | architecture, Metal frontend, C object ABI, bridge source, test model | MIT | pinned: [`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3); fetched by `tools/deps.py` for the bridge build |
-| **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `720ef1ce9ae2a2068999a8675717418b9416283e`; see below |
+| **AdrenoMetal** | architecture, Metal frontend, C object ABI, bridge source, test model | MIT | pinned: [`cc0a4e8e57d20f4a4698753c2530875f2b10c0ca`](https://github.com/UniXNU/AdrenoMetal/tree/cc0a4e8e57d20f4a4698753c2530875f2b10c0ca); fetched by `tools/deps.py` for the bridge build |
+| **metal2vulkan** | Metal API → Vulkan translation | GPL-2.0-or-later OR LGPL-3.0-or-later | pinned: `46e7cc96a284150bdf19b4a6a7890b0a8bc0ef71`; see below |
 | **Mesa (PanVK + Panfrost)** | Vulkan driver, Bifrost compiler, `pan_kmod` | MIT (per file) | pinned: `mesa-26.3.1` / `fec8830e9c94b1d67f3d8469467d5529fb2978cd`; see below |
 | **NativeMali** | kernel ABI and device facts | GPL-2.0-only | canonical in `Mali-G52`; `NativeMaliABI.h` pinned by sha256 in `deps/abi.sha256` |
 | **Mesa build deps** | `libdrm` headers at build time, Python/mako for generated code, etc. | per package | not enumerated |
@@ -33,8 +33,8 @@ AdrenoMetal is the upstream project this port is derived from:
 ```text
 AdrenoMetal
 https://github.com/UniXNU/AdrenoMetal
-Pinned revision: 454ff2ce83766ce7b3e0f355e83f1d72907708b3
-https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3
+Pinned revision: cc0a4e8e57d20f4a4698753c2530875f2b10c0ca
+https://github.com/UniXNU/AdrenoMetal/tree/cc0a4e8e57d20f4a4698753c2530875f2b10c0ca
 MIT License
 Copyright (c) 2026 NativeMetal contributors
 ```
@@ -120,7 +120,7 @@ repository. It is a build input, not a deliverable.
 ```text
 metal2vulkan
   repository: https://github.com/steelbrain/metal2vulkan
-  commit:     720ef1ce9ae2a2068999a8675717418b9416283e    (committed 2026-10-14)
+  commit:     46e7cc96a284150bdf19b4a6a7890b0a8bc0ef71    (committed 2026-10-14)
   licence:    GPL-2.0-or-later OR LGPL-3.0-or-later
   machine:    deps/deps.toml
   qualified:  UniXNU-merlinx scripts/data/gpu-metal-vulkan-inputs.json
@@ -206,7 +206,7 @@ cargo  1.98.1 (797e8a9bc 2026-08-05)
 target aarch64-apple-darwin (stable, default)
 ```
 
-Command and result, at the pinned `720ef1ce9ae2a2068999a8675717418b9416283e`
+Command and result, at the pinned `46e7cc96a284150bdf19b4a6a7890b0a8bc0ef71`
 (the same crates also built at the rejected `219f0136`; the pin changed because
 the bridge needs `720ef1c`):
 

@@ -55,11 +55,9 @@ if [ -n "$(git -C "$metal2vulkan" status --porcelain)" ]; then
 fi
 
 patches=0
-for name in     0063-main-optimizations-on-development-46e7cc96.patch     0064-copies-leave-unreachable-pages-alone.patch
-do
-    git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/$name"
-    patches=$((patches + 1))
-done
+# Apply 0063 only (0064 is macOS-only and fails on iOS copied.rs:1252).
+git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/0063-main-optimizations-on-development-46e7cc96.patch"
+patches=1
 echo "applied $patches patch(es) from $adrenometal/bridge/patches"
 
 out="$root/build/bridge-host"

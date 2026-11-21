@@ -20,8 +20,8 @@ AdrenoMetal — the upstream project this port is based on
   AdrenoMetal
   Metal API frontend and metal2vulkan translation
   https://github.com/UniXNU/AdrenoMetal
-  Pinned revision: 454ff2ce83766ce7b3e0f355e83f1d72907708b3
-  https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3
+  Pinned revision: cc0a4e8e57d20f4a4698753c2530875f2b10c0ca
+  https://github.com/UniXNU/AdrenoMetal/tree/cc0a4e8e57d20f4a4698753c2530875f2b10c0ca
 
   MIT License
   Copyright (c) 2026 NativeMetal contributors
@@ -37,12 +37,12 @@ AdrenoMetal — the upstream project this port is based on
 
   Imported file: src/bridge/NativeMetalObjects.h, byte-identical to
   bridge/NativeMetalObjects.h at the pinned revision.
-  sha256 4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14
+  sha256 f499037ea7827897fc69b965863f93872378dc18fda6350cb20b5bbb071c09df
   Imported files, byte-identical to the pinned revision:
     src/frontend/NativeBridgeMetalFrontend.h
-      sha256 50e6fbc267b7d77d46bce3cd86b0842bce738f5a4a0c5cdd2b1054d10477bfc2
+      sha256 5ec91f2f515c352890f6a6f95215e959ecf6728af1a411e0e4f2a78b5192829c
     src/frontend/NativeBridgeMetalFrontend.mm
-      sha256 a25ff862682c3efecc9d7aa5a6a1aabafd0491bdf1892575bb378ee8299be5a1
+      sha256 bf7c004c245eee42e4b77e84b4603747d370bcff69451da5dc3a07cb0ceb4767
   They keep their SPDX-License-Identifier: MIT lines; tests/test_pins.py
   enforces the hashes and the attribution.
 
@@ -60,7 +60,7 @@ Third-party material
 1. metal2vulkan
    SPDX-License-Identifier: GPL-2.0-or-later OR LGPL-3.0-or-later
    Copyright Anees Iqbal and contributors.
-   Pinned revision: 720ef1ce9ae2a2068999a8675717418b9416283e
+   Pinned revision: 46e7cc96a284150bdf19b4a6a7890b0a8bc0ef71
    (the translator commit UniXNU qualifies in
    scripts/data/gpu-metal-vulkan-inputs.json)
    https://github.com/steelbrain/metal2vulkan

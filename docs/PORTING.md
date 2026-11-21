@@ -5,7 +5,7 @@ This document maps every top-level file in `AdrenoMetal-reference/` to a Mali
 decision. It is a plan, not a claim that the files are already present.
 
 The map is anchored to AdrenoMetal commit
-[`454ff2ce83766ce7b3e0f355e83f1d72907708b3`](https://github.com/UniXNU/AdrenoMetal/tree/454ff2ce83766ce7b3e0f355e83f1d72907708b3)
+[`cc0a4e8e57d20f4a4698753c2530875f2b10c0ca`](https://github.com/UniXNU/AdrenoMetal/tree/cc0a4e8e57d20f4a4698753c2530875f2b10c0ca)
 (2026-10-25). The local reference copy was verified byte-for-byte against that
 commit on 2026-10-31. Do not apply this map to a newer AdrenoMetal tree without
 recording the new revision.

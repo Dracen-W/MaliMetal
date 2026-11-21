@@ -117,7 +117,7 @@ def main() -> int:
 
     # The AdrenoMetal credit is a licence condition, not decoration: it must
     # stay pinned to the commit the porting map was checked against.
-    adreno = "454ff2ce83766ce7b3e0f355e83f1d72907708b3"
+    adreno = "cc0a4e8e57d20f4a4698753c2530875f2b10c0ca"
     for rel, text in (
         ("README.md", readme),
         ("NOTICE", notice),
@@ -136,7 +136,7 @@ def main() -> int:
     bridge_hash = hashlib.sha256(bridge.read_bytes()).hexdigest()
     check(
         bridge_hash
-        == "4f00c3efbdb3cd5678088f65563e9a1caab22d2ea3d37108bce24c73bbd6ba14",
+        == "f499037ea7827897fc69b965863f93872378dc18fda6350cb20b5bbb071c09df",
         f"src/bridge/NativeMetalObjects.h is not the pinned AdrenoMetal file ({bridge_hash})",
     )
     check(
@@ -148,9 +148,9 @@ def main() -> int:
     # the port from the revision the rest of the credits name.
     imported = {
         "src/frontend/NativeBridgeMetalFrontend.h":
-            "50e6fbc267b7d77d46bce3cd86b0842bce738f5a4a0c5cdd2b1054d10477bfc2",
+            "5ec91f2f515c352890f6a6f95215e959ecf6728af1a411e0e4f2a78b5192829c",
         "src/frontend/NativeBridgeMetalFrontend.mm":
-            "a25ff862682c3efecc9d7aa5a6a1aabafd0491bdf1892575bb378ee8299be5a1",
+            "bf7c004c245eee42e4b77e84b4603747d370bcff69451da5dc3a07cb0ceb4767",
     }
     for rel, expected in imported.items():
         digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()

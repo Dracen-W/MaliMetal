@@ -17,10 +17,8 @@ if [ -z "$llvm_as" ]; then
 fi
 
 if [ -z "$(git -C "$metal2vulkan" status --porcelain)" ]; then
-    for name in         0063-main-optimizations-on-development-46e7cc96.patch         0064-copies-leave-unreachable-pages-alone.patch
-    do
-        git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/$name"
-    done
+    # Apply 0063 only (0064 is macOS-only and fails on iOS copied.rs:1252).
+    git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/0063-main-optimizations-on-development-46e7cc96.patch"
 fi
 
 out="$root/build/bridge-ios"
