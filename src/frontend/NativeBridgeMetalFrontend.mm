@@ -3801,9 +3801,18 @@ static void completed(void *context) {
   gGpuTotalUs += took;
   uint64_t prevMax = gGpuMaxUs.load();
   while(took > prevMax && !gGpuMaxUs.compare_exchange_weak(prevMax, took)){}
+  uint32_t cmtIdx = 0, cmtPasses = 0, cmtDraws = 0, cmtBlits = 0, cmtKpx = 0;
+  uint64_t cmtEncUs = 0, cmtScUs = 0;
   if(r.index==commandBuffer.commitIndex) {
    r.callbackUs=took;
    if(r.scheduledUs>0) gSchedTotalUs += (uint64_t)r.scheduledUs;
+   cmtIdx = r.index;
+   cmtEncUs = r.ageUs;
+   cmtScUs = r.scheduledUs > 0 ? (uint64_t)r.scheduledUs : 0;
+   cmtPasses = r.work.passes;
+   cmtDraws = r.work.draws;
+   cmtBlits = r.work.blits;
+   cmtKpx = (uint32_t)(r.work.pixels >> 10);
    {
     traceStartWriter();traceNote(commandBuffer->createTid);
     if(commandBuffer->commitTid!=commandBuffer->createTid)traceNote(commandBuffer->commitTid);
@@ -3822,6 +3831,23 @@ static void completed(void *context) {
      if(a.prevKpx>30000)b.heavy++;
     }
     a.prevCommitUs=r.committedUs;a.prevCtcUs=took;a.prevKpx=r.work.pixels>>10;
+   }
+  }
+  if(cmtIdx && (took >= 30000 || cmtEncUs >= 30000)) {
+   static std::atomic<uint64_t> gLastCmtUs{0};
+   const uint64_t now = nowUs();
+   const uint64_t prev = gLastCmtUs.load(std::memory_order_relaxed);
+   if(took >= 100000 || (now - prev) >= 100000) {
+    gLastCmtUs.store(now, std::memory_order_relaxed);
+    char cp[128];
+    snprintf(cp, sizeof cp, "/NativeMali/CMT_i%u_e%llu_s%llu_g%llu_p%u_d%u_b%u_k%u",
+     cmtIdx,
+     (unsigned long long)(cmtEncUs / 1000),
+     (unsigned long long)(cmtScUs / 1000),
+     (unsigned long long)(took / 1000),
+     cmtPasses, cmtDraws, cmtBlits, cmtKpx);
+    int cfd = open(cp, O_RDONLY);
+    if(cfd >= 0) close(cfd);
    }
   }
   const uint64_t done = gCompleted.load();
