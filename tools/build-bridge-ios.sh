@@ -19,6 +19,18 @@ fi
 if [ -z "$(git -C "$metal2vulkan" status --porcelain)" ]; then
     # Apply 0063 only (0064 is macOS-only and fails on iOS copied.rs:1252).
     git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/0063-main-optimizations-on-development-46e7cc96.patch"
+    # metal2vulkan@46e7cc96 omits the non-linux/non-macos fallback for read_pages()
+    # in copied.rs (later added on main). Append the exact fallback for aarch64-apple-ios.
+    copied_rs="$metal2vulkan/crates/metal2vulkan-runtime/src/copied.rs"
+    if ! grep -q 'not(any(target_os = "linux", target_os = "macos"))' "$copied_rs"; then
+        cat >> "$copied_rs" <<'RS_EOF'
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+pub(crate) fn read_pages(_pages: NonNull<u8>, _into: &mut [u8]) -> bool {
+    false
+}
+RS_EOF
+    fi
 fi
 
 out="$root/build/bridge-ios"
