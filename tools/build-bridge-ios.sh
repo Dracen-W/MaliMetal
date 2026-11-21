@@ -57,7 +57,9 @@ libc = "0.2"
 sha2 = { version = "0.10", features = ["asm"] }
 
 [profile.release]
-opt-level = "z"
+# Optimize for speed (not size) so metal2vulkan AIR->SPIR-V translation and
+# command encoding get full inlining and auto-vectorization.
+opt-level = 3
 panic = "abort"
 debug = false
 strip = "symbols"

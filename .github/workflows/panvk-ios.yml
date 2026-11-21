@@ -100,7 +100,11 @@ jobs:
           EOF
           export PATH="$PWD/mesa-host/bin:$PATH"
           unset PKG_CONFIG_PATH PKG_CONFIG_LIBDIR
+          # Release build with NDEBUG disables Mesa's -O0 default and per-pass
+          # nir_validate_shader() / Bifrost IR assertions (10x-30x faster shader
+          # compilation and command submission on device).
           meson setup mesa/build-ios mesa --cross-file ios.ini \
+            -Dbuildtype=release -Db_ndebug=true \
             -Dvulkan-drivers=panfrost -Dgallium-drivers= \
             -Dglx=disabled -Degl=disabled -Dgbm=disabled -Dplatforms= \
             -Dzstd=disabled -Dxmlconfig=disabled -Dexpat=disabled -Dshader-cache=disabled \
@@ -134,7 +138,7 @@ jobs:
             -framework IOKit -framework CoreFoundation \
             -o build/libnative_mali_facade.dylib
           "$clangxx" -target arm64-apple-ios17.0 -isysroot "$sdk" \
-            -std=c++17 -Oz -Wall -Wextra -Werror \
+            -std=c++17 -O2 -Wall -Wextra -Werror \
             -fobjc-arc -Wno-deprecated-declarations -bundle \
             -Ibuild/abi -Isrc -Isrc/bridge -Isrc/frontend -Isrc/plugin -I/opt/homebrew/include \
             -x objective-c++ src/plugin/NativeMaliMetalPlugin.mm src/frontend/NativeBridgeMetalFrontend.mm \
