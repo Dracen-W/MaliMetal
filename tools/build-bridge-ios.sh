@@ -68,14 +68,14 @@ libc = "0.2"
 sha2 = { version = "0.10", features = ["asm"] }
 
 [profile.release]
-# Optimize for speed (not size) so metal2vulkan AIR->SPIR-V translation and
-# command encoding get full inlining and auto-vectorization.
-opt-level = 3
-panic = "unwind"
+# Fit within merlinx's 64 MiB boot partition while keeping fast vectorization:
+# opt-level = "s" + panic = "abort" trims ~9-11 MiB raw (~4 MiB in mali-gpu.addon)
+# of __text and __eh_frame/__gcc_except_tab, and thin LTO cuts CI build time ~3x.
+opt-level = "s"
+panic = "abort"
 debug = false
 strip = "symbols"
-lto = "fat"
-codegen-units = 1
+lto = "thin"
 EOF
 
 component_id=$(git -C "$adrenometal" rev-parse HEAD)

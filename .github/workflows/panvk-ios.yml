@@ -27,7 +27,26 @@ jobs:
           echo "$RUNNER_TEMP/pyvenv/bin" >> "$GITHUB_PATH"
           echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
 
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-reg-${{ runner.os }}-${{ hashFiles('deps/deps.toml') }}
+          restore-keys: |
+            cargo-reg-${{ runner.os }}-
+
+      - name: Cache Rust Metal-to-Vulkan bridge (iOS)
+        id: cache-bridge
+        uses: actions/cache@v4
+        with:
+          path: build/libmali_metal_bridge.a
+          key: m2v-bridge-ios-${{ runner.os }}-${{ hashFiles('deps/deps.toml', 'tools/build-bridge-ios.sh') }}
+
       - name: Fetch and build the Rust Metal-to-Vulkan bridge for iOS
+        if: steps.cache-bridge.outputs.cache-hit != 'true'
         env:
           LLVM_AS: /opt/homebrew/opt/llvm/bin/llvm-as
         run: |
@@ -36,10 +55,26 @@ jobs:
           python3 tools/deps.py verify --checkout metal2vulkan=.deps/metal2vulkan --checkout adrenometal=.deps/adrenometal
           METAL2VULKAN_DIR="$PWD/.deps/metal2vulkan" ADRENOMETAL_DIR="$PWD/.deps/adrenometal" tools/build-bridge-ios.sh
 
+      - name: Cache host Mesa tools
+        id: cache-mesa-host
+        uses: actions/cache@v4
+        with:
+          path: mesa-host/bin
+          key: mesa-host-26.3.1-${{ runner.os }}-${{ hashFiles('patches/mesa/*.patch') }}
+
+      - name: Cache cross-built PanVK (iOS)
+        id: cache-panvk-ios
+        uses: actions/cache@v4
+        with:
+          path: mesa/build-ios/src/panfrost/vulkan/libvulkan_panfrost.dylib
+          key: panvk-ios-26.3.1-${{ runner.os }}-${{ hashFiles('patches/mesa/*.patch', 'src/backend/**') }}
+
       - name: Clone Mesa at the pinned tag
+        if: steps.cache-mesa-host.outputs.cache-hit != 'true' || steps.cache-panvk-ios.outputs.cache-hit != 'true'
         run: git clone --depth 1 --branch mesa-26.3.1 https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: Apply the patch series
+        if: steps.cache-mesa-host.outputs.cache-hit != 'true' || steps.cache-panvk-ios.outputs.cache-hit != 'true'
         run: |
           set -eu
           for patch in patches/mesa/*.patch; do
@@ -48,6 +83,7 @@ jobs:
           done
 
       - name: Build host Mesa tools
+        if: steps.cache-mesa-host.outputs.cache-hit != 'true'
         env:
           LLVM_CONFIG: /opt/homebrew/opt/llvm/bin/llvm-config
         run: |
@@ -72,6 +108,7 @@ jobs:
           test -x mesa-host/bin/panfrost_compile
 
       - name: Cross-build PanVK for iOS
+        if: steps.cache-panvk-ios.outputs.cache-hit != 'true'
         run: |
           set -eu
           sdk=$(xcrun --sdk iphoneos --show-sdk-path)
