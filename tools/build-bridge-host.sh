@@ -55,8 +55,9 @@ if [ -n "$(git -C "$metal2vulkan" status --porcelain)" ]; then
 fi
 
 patches=0
-for patch in "$adrenometal"/bridge/patches/*.patch; do
-    git -C "$metal2vulkan" apply "$patch"
+for name in     0063-main-optimizations-on-development-46e7cc96.patch     0064-copies-leave-unreachable-pages-alone.patch
+do
+    git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/$name"
     patches=$((patches + 1))
 done
 echo "applied $patches patch(es) from $adrenometal/bridge/patches"
@@ -68,6 +69,7 @@ mkdir -p "$out"
 fixtures="$metal2vulkan/crates/metal2vulkan-validation/fixtures/public"
 "$llvm_as" -o "$out/runtime_examples.air" "$fixtures/examples/runtime_examples.ll"
 "$llvm_as" -o "$out/function_constant.air" "$fixtures/kernel_function_constant_gate_fold.ll"
+"$llvm_as" -o "$out/scanout_convert.air" "$adrenometal/shaders/scanout_convert.ll"
 
 # The runtime hashes this into its shader-cache key; a deterministic value is
 # all a compile check needs.
@@ -94,7 +96,11 @@ libc = "0.2"
 sha2 = { version = "0.10", features = ["asm"] }
 EOF
 
+component_id=$(git -C "$adrenometal" rev-parse HEAD)
+
+NMB_COMPONENT_ID="$component_id" \
 NMB_RUNTIME_ID="$runtime_id" \
+NMB_SCANOUT_AIR="$out/scanout_convert.air" \
 NMB_FIXTURE_AIR="$out/runtime_examples.air" \
 NMB_FC_AIR="$out/function_constant.air" \
     cargo build --manifest-path "$out/Cargo.toml"

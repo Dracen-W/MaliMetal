@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-only
-# Cross-build NativeMetalBridge.rs (AdrenoMetal 454ff2c + metal2vulkan 720ef1c) for aarch64-apple-ios.
+# Cross-build NativeMetalBridge.rs (AdrenoMetal cc0a4e8 + metal2vulkan 46e7cc96) for aarch64-apple-ios.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -17,8 +17,9 @@ if [ -z "$llvm_as" ]; then
 fi
 
 if [ -z "$(git -C "$metal2vulkan" status --porcelain)" ]; then
-    for patch in "$adrenometal"/bridge/patches/*.patch; do
-        git -C "$metal2vulkan" apply "$patch"
+    for name in         0063-main-optimizations-on-development-46e7cc96.patch         0064-copies-leave-unreachable-pages-alone.patch
+    do
+        git -C "$metal2vulkan" apply "$adrenometal/bridge/patches/$name"
     done
 fi
 
@@ -60,13 +61,16 @@ sha2 = { version = "0.10", features = ["asm"] }
 # Optimize for speed (not size) so metal2vulkan AIR->SPIR-V translation and
 # command encoding get full inlining and auto-vectorization.
 opt-level = 3
-panic = "abort"
+panic = "unwind"
 debug = false
 strip = "symbols"
 lto = "fat"
 codegen-units = 1
 EOF
 
+component_id=$(git -C "$adrenometal" rev-parse HEAD)
+
+NMB_COMPONENT_ID="$component_id" \
 NMB_RUNTIME_ID="$runtime_id" \
 NMB_FIXTURE_AIR="$out/runtime_examples.air" \
 NMB_FC_AIR="$out/function_constant.air" \

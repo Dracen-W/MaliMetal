@@ -82,6 +82,12 @@ void emitMaliOpenTrace(const char *tag, const char *msg) {
     setenv("MALIMETAL_NATIVE", "1", 1);
     setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
     setenv("MESA_VK_VERSION_OVERRIDE", "1.2", 1);
+    setenv("METAL2VULKAN_SHADER_CACHE_OPTIONAL", "1", 1);
+    setenv("METAL2VULKAN_COMPILE_ON_ASKING_THREAD", "1", 1);
+    setenv("CA_DISABLE_FRAMEBUFFER_COMPRESSION", "1", 1);
+    setenv("CA_DISPLAY_EDR_HEADROOM", "1", 1);
+    setenv("CA_FP16_MIN_HEADROOM", "1e30", 1);
+    setenv("CA_ALLOW_EDR_MIRRORING", "0", 1);
 
     void *facade = dlopen(kFacadePath, RTLD_NOW | RTLD_GLOBAL);
     if (!facade) {
