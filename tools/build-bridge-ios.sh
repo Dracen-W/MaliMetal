@@ -75,7 +75,8 @@ opt-level = "s"
 panic = "abort"
 debug = false
 strip = "symbols"
-lto = "thin"
+lto = "fat"
+codegen-units = 1
 EOF
 
 component_id=$(git -C "$adrenometal" rev-parse HEAD)
