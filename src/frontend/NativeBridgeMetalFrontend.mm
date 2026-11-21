@@ -426,6 +426,19 @@ static std::string quartzCoreCallers();
  NSError *error=nil;id<MTLFunction> function=[self newFunctionWithName:name constantValues:values error:&error];
  handler(function,error);
 }
+// SPI used by mediaserverd / CoreImage / VideoToolbox: ignore Apple's precompiled
+// pipelineLibrary and resolve the function from this library directly.
+- (id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values pipelineLibrary:(id)pipelineLibrary error:(NSError **)error {
+ (void)pipelineLibrary;
+ if(values)return [self newFunctionWithName:name constantValues:values error:error];
+ id<MTLFunction> function=[self newFunctionWithName:name];
+ if(!function){if(error)*error=nbError([NSString stringWithFormat:@"function %@: %@",name?:@"(null)",lastError()]);return nil;}
+ if(error)*error=nil;return function;
+}
+- (void)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values pipelineLibrary:(id)pipelineLibrary completionHandler:(void (^)(id<MTLFunction>,NSError *))handler {
+ NSError *error=nil;id<MTLFunction> function=[self newFunctionWithName:name constantValues:values pipelineLibrary:pipelineLibrary error:&error];
+ if(handler)handler(function,error);
+}
 - (MTLLibraryType)type {return MTLLibraryTypeExecutable;}
 // The descriptor's name and constants; its specialized name only labels Metal's function and its options ask for compile-time work the
 // runtime does when the function is made.
@@ -1287,11 +1300,63 @@ static bool computeDescriptor(MTLComputePipelineDescriptor *d,NmbComputePipeline
 }
 @end
 
+// Persistent on-disk pipeline binary archive (backed by metal2vulkan / PanVK VkPipelineCache).
+// Loaded once at device open, attached to every render/compute pipeline creation, and
+// serialized asynchronously via atomic temp-file + rename so compiled Bifrost shaders
+// survive process restarts and reboots without blocking the render thread.
+static std::mutex gPersistentArchiveLock;
+static NmbBinaryArchive *gPersistentArchive=nullptr;
+static std::string gPersistentArchivePath;
+static std::atomic<uint64_t> gPersistentArchiveDirty{0};
+static std::atomic<bool> gPersistentArchiveSaving{false};
+
+static void initPersistentArchive(const char *cacheDir) {
+ if(!gDevice || !cacheDir || !*cacheDir)return;
+ const char *prog=getprogname();
+ std::string safeProg=(prog && *prog)?prog:"metal";
+ for(char &c:safeProg)if(c=='/' || c==' ' || c==':')c='_';
+ std::string path=std::string(cacheDir)+"/mali-pcache-"+safeProg+".bin";
+ NmbBinaryArchive *loaded=nullptr;
+ if(access(path.c_str(),R_OK)==0) {
+  loaded=nmb_binary_archive_new(gDevice,path.c_str());
+  if(!loaded)unlink(path.c_str());
+ }
+ if(!loaded)loaded=nmb_binary_archive_new(gDevice,nullptr);
+ if(loaded) {
+  std::lock_guard<std::mutex> lock(gPersistentArchiveLock);
+  gPersistentArchive=loaded;
+  gPersistentArchivePath=std::move(path);
+ }
+}
+
+static void maybeFlushPersistentArchive(void) {
+ const uint64_t dirty=gPersistentArchiveDirty.fetch_add(1)+1;
+ // Flush early for first-boot warmth (4, 12, 26), then every 16 new pipelines.
+ if(dirty!=4 && dirty!=12 && dirty!=26 && (dirty%16)!=0)return;
+ if(gPersistentArchiveSaving.exchange(true))return;
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
+  std::string tmpPath,finalPath;
+  {
+   std::lock_guard<std::mutex> lock(gPersistentArchiveLock);
+   if(gPersistentArchive && !gPersistentArchivePath.empty()) {
+    finalPath=gPersistentArchivePath;
+    tmpPath=finalPath+".tmp";
+    if(nmb_binary_archive_serialize(gPersistentArchive,tmpPath.c_str()))
+     rename(tmpPath.c_str(),finalPath.c_str());
+    else
+     unlink(tmpPath.c_str());
+   }
+  }
+  gPersistentArchiveSaving.store(false);
+ });
+}
+
 static bool pipelineArchives(NSArray *list,std::vector<NmbBinaryArchive *> &archives,NSError **error) {
  for(id archive in list) {
   if(![archive isKindOfClass:[NBBinaryArchive class]]){if(error)*error=nbError(@"foreign binary archive");return false;}
   archives.push_back([(NBBinaryArchive *)archive handle]);
  }
+ if(gPersistentArchive)archives.push_back(gPersistentArchive);
  return true;
 }
 
@@ -1451,10 +1516,16 @@ static bool pipelineArchives(NSArray *list,std::vector<NmbBinaryArchive *> &arch
                                                          reflection:(MTLAutoreleasedComputePipelineReflection *)reflection error:(NSError **)error {
  if(reflection)*reflection=nil;
  if(![(id)function isKindOfClass:[NBFunction class]]){if(error)*error=nbError(@"foreign function");return nil;}
- const NmbPipelineOptions creation={(uint64_t)options,nullptr,0};
+ NmbBinaryArchive *const persistent=gPersistentArchive;
+ const NmbPipelineOptions creation={(uint64_t)options,persistent?&persistent:nullptr,persistent?1u:0u};
  const uint64_t pipelineBegan=nowUs();
  NmbComputePipeline *handle=nmb_compute_pipeline_new_with_options(gDevice,[(NBFunction *)function handle],&creation);gTimePipeline.add(pipelineBegan);
  if(!handle)return failWith<id<MTLComputePipelineState>>(error,@"compute pipeline",nil);
+ if(persistent) {
+  std::lock_guard<std::mutex> lock(gPersistentArchiveLock);
+  if(gPersistentArchive)nmb_binary_archive_add_compute(gPersistentArchive,[(NBFunction *)function handle]);
+  maybeFlushPersistentArchive();
+ }
  NBComputePipeline *state=[NBComputePipeline new];state.handle=handle;gPipelines++;if(error)*error=nil;return (id<MTLComputePipelineState>)state;
 }
 - (id<MTLComputePipelineState>)newComputePipelineStateWithDescriptor:(MTLComputePipelineDescriptor *)d options:(MTLPipelineOption)options
@@ -1467,6 +1538,11 @@ static bool pipelineArchives(NSArray *list,std::vector<NmbBinaryArchive *> &arch
  const uint64_t pipelineBegan=nowUs();
  NmbComputePipeline *handle=nmb_compute_pipeline_new_with_descriptor(gDevice,&p,&creation);gTimePipeline.add(pipelineBegan);
  if(!handle)return failWith<id<MTLComputePipelineState>>(error,@"compute pipeline",nil);
+ if(gPersistentArchive) {
+  std::lock_guard<std::mutex> lock(gPersistentArchiveLock);
+  if(gPersistentArchive)nmb_binary_archive_add_compute_descriptor(gPersistentArchive,&p);
+  maybeFlushPersistentArchive();
+ }
  NBComputePipeline *state=[NBComputePipeline new];state.handle=handle;state.label=d.label;gPipelines++;
  if(error)*error=nil;return (id<MTLComputePipelineState>)state;
 }
@@ -1482,7 +1558,13 @@ static bool pipelineArchives(NSArray *list,std::vector<NmbBinaryArchive *> &arch
  if(!pipelineArchives(d.binaryArchives,archives,error)){delete p;return nil;}
  const NmbPipelineOptions creation={(uint64_t)options,archives.data(),archives.size()};
  const uint64_t pipelineBegan=nowUs();const NBCost costBegan=NBCost::now();
- NmbRenderPipeline *handle=nmb_render_pipeline_new_with_options(gDevice,p,&creation);delete p;gTimePipeline.add(pipelineBegan);
+ NmbRenderPipeline *handle=nmb_render_pipeline_new_with_options(gDevice,p,&creation);gTimePipeline.add(pipelineBegan);
+ if(handle && gPersistentArchive) {
+  std::lock_guard<std::mutex> lock(gPersistentArchiveLock);
+  if(gPersistentArchive)nmb_binary_archive_add_render(gPersistentArchive,p);
+  maybeFlushPersistentArchive();
+ }
+ delete p;
  journalRenderPipeline(d,pipelineBegan,handle?nullptr:nmb_last_error(),gJournalPath.empty()?std::string():NBCost::now().since(costBegan));
  if(!handle) {
   NBFunction *vf=[(id)d.vertexFunction isKindOfClass:[NBFunction class]]?(NBFunction *)d.vertexFunction:nil;
@@ -1585,7 +1667,8 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  gMissing=missing;gInFlight=[NSMutableSet set];
  gDevice=nmb_device_open(loader,cache);
  if(!gDevice){NBLOG(@"native-metal: device refused: %s",nmb_last_error());return nil;}
- if(cache){gJournalPath=std::string(cache)+"/pipelines.log";gJournalBegan=nowUs();}
+ initPersistentArchive(cache);
+ if(cache && getenv("MALIMETAL_JOURNAL")){gJournalPath=std::string(cache)+"/pipelines.log";gJournalBegan=nowUs();}
  char name[128]={};nmb_device_name(gDevice,name,sizeof name);gName=[NSString stringWithUTF8String:name];gRegistryID=registryID;
  // The target families supportsFamily: answers true, with the rows of Apple's tables the device does not meet in them (nmb_device_family_waivers).
  {char waived[4096]={};nmb_device_family_waivers(gDevice,waived,sizeof waived);

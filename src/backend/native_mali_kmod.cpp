@@ -10,6 +10,44 @@
  * the fence tracker for the lifetime of the device.
  */
 #include "native_mali_kmod.h"
+#include <atomic>
+#include <cstdio>
+#include <ctime>
+#include <fcntl.h>
+#include <unistd.h>
+
+namespace {
+std::atomic<uint64_t> gKmodSyncUs{0};
+std::atomic<uint64_t> gKmodSyncCalls{0};
+std::atomic<uint64_t> gKmodSyncBytes{0};
+std::atomic<uint64_t> gKmodSubmitUs{0};
+std::atomic<uint64_t> gKmodSubmitCalls{0};
+std::atomic<uint64_t> gKmodWaitUs{0};
+std::atomic<uint64_t> gKmodWaitCalls{0};
+
+uint64_t kmodNowUs() {
+    struct timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<uint64_t>(ts.tv_sec) * 1000000ULL +
+           static_cast<uint64_t>(ts.tv_nsec) / 1000ULL;
+}
+
+void kmodMaybeTrace(uint64_t submits) {
+    if (submits != 1 && submits != 5 && (submits % 25) != 0) return;
+    char p[120];
+    std::snprintf(p, sizeof(p),
+        "/NativeMali/KMOD_s%llu_sy%llums(%llu/%lluM)_sb%llums_wt%llums(%llu)",
+        static_cast<unsigned long long>(submits),
+        static_cast<unsigned long long>(gKmodSyncUs.load() / 1000),
+        static_cast<unsigned long long>(gKmodSyncCalls.load()),
+        static_cast<unsigned long long>(gKmodSyncBytes.load() >> 20),
+        static_cast<unsigned long long>(gKmodSubmitUs.load() / 1000),
+        static_cast<unsigned long long>(gKmodWaitUs.load() / 1000),
+        static_cast<unsigned long long>(gKmodWaitCalls.load()));
+    int fd = ::open(p, O_RDONLY);
+    if (fd >= 0) ::close(fd);
+}
+} // namespace
 
 #include "NativeMaliAbiTable.h"
 #include "NativeMaliClient.h"
@@ -297,7 +335,12 @@ NativeMaliResult native_mali_kmod_bo_sync(NativeMaliKmod *kmod, uint64_t handle,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    return to_result(kmod->device.sync_bo(handle, offset, bytes, op));
+    const uint64_t t0 = kmodNowUs();
+    const NativeMaliResult r = to_result(kmod->device.sync_bo(handle, offset, bytes, op));
+    gKmodSyncUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+    gKmodSyncCalls.fetch_add(1, std::memory_order_relaxed);
+    gKmodSyncBytes.fetch_add(bytes, std::memory_order_relaxed);
+    return r;
 }
 
 NativeMaliResult native_mali_kmod_map(NativeMaliKmod *kmod, uint64_t handle,
@@ -415,7 +458,12 @@ NativeMaliResult native_mali_kmod_submit(NativeMaliKmod *kmod, uint64_t chain,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    return to_result(kmod->device.submit(chain, wait_fence, wait_timeout_ns, fence));
+    const uint64_t t0 = kmodNowUs();
+    const NativeMaliResult r = to_result(kmod->device.submit(chain, wait_fence, wait_timeout_ns, fence));
+    gKmodSubmitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+    const uint64_t n = gKmodSubmitCalls.fetch_add(1, std::memory_order_relaxed) + 1;
+    kmodMaybeTrace(n);
+    return r;
 }
 
 NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
@@ -423,7 +471,11 @@ NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    return to_result(kmod->device.wait(fence, timeout_ns));
+    const uint64_t t0 = kmodNowUs();
+    const NativeMaliResult r = to_result(kmod->device.wait(fence, timeout_ns));
+    gKmodWaitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+    gKmodWaitCalls.fetch_add(1, std::memory_order_relaxed);
+    return r;
 }
 
 NativeMaliResult native_mali_kmod_refresh_status(NativeMaliKmod *kmod) {
