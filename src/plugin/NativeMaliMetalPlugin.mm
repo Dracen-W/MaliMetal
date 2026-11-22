@@ -130,7 +130,7 @@ void emitMaliOpenTrace(const char *tag, const char *msg) {
         return nil;
     }
     NSString *devName = [device respondsToSelector:@selector(name)] ? [device name] : nil;
-    emitMaliOpenTrace("OK", devName ? [devName UTF8String] : "mali");
+    if (getenv("SHENG_DIAG") != nullptr) emitMaliOpenTrace("OK", devName ? [devName UTF8String] : "mali");
     return device;
 }
 

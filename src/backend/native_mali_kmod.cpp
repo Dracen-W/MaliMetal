@@ -12,6 +12,7 @@
 #include "native_mali_kmod.h"
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <fcntl.h>
 #include <mutex>
@@ -26,6 +27,12 @@ std::atomic<uint64_t> gKmodSubmitCalls{0};
 std::atomic<uint64_t> gKmodWaitUs{0};
 std::atomic<uint64_t> gKmodWaitCalls{0};
 
+bool kmodTraceOn() {
+    static const bool on = (std::getenv("SHENG_DIAG") != nullptr) ||
+                           (std::getenv("MALIMETAL_KMOD_TRACE") != nullptr);
+    return on;
+}
+
 uint64_t kmodNowUs() {
     struct timespec ts{};
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -34,6 +41,7 @@ uint64_t kmodNowUs() {
 }
 
 void kmodMaybeTrace(uint64_t submits) {
+    if (!kmodTraceOn()) return;
     if (submits != 1 && submits != 25 && (submits % 250) != 0) return;
     char p[120];
     std::snprintf(p, sizeof(p),
@@ -339,15 +347,18 @@ NativeMaliResult native_mali_kmod_bo_sync(NativeMaliKmod *kmod, uint64_t handle,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    const uint64_t t0 = kmodNowUs();
+    const bool trace = kmodTraceOn();
+    const uint64_t t0 = trace ? kmodNowUs() : 0;
     NativeMaliResult r;
     {
         std::lock_guard<std::mutex> lock(kmod->mutex);
         r = to_result(kmod->device.sync_bo(handle, offset, bytes, op));
     }
-    gKmodSyncUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
-    gKmodSyncCalls.fetch_add(1, std::memory_order_relaxed);
-    gKmodSyncBytes.fetch_add(bytes, std::memory_order_relaxed);
+    if (trace) {
+        gKmodSyncUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+        gKmodSyncCalls.fetch_add(1, std::memory_order_relaxed);
+        gKmodSyncBytes.fetch_add(bytes, std::memory_order_relaxed);
+    }
     return r;
 }
 
@@ -472,15 +483,18 @@ NativeMaliResult native_mali_kmod_submit(NativeMaliKmod *kmod, uint64_t chain,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    const uint64_t t0 = kmodNowUs();
+    const bool trace = kmodTraceOn();
+    const uint64_t t0 = trace ? kmodNowUs() : 0;
     NativeMaliResult r;
     {
         std::lock_guard<std::mutex> lock(kmod->mutex);
         r = to_result(kmod->device.submit(chain, wait_fence, wait_timeout_ns, fence));
     }
-    gKmodSubmitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
-    const uint64_t n = gKmodSubmitCalls.fetch_add(1, std::memory_order_relaxed) + 1;
-    kmodMaybeTrace(n);
+    if (trace) {
+        gKmodSubmitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+        const uint64_t n = gKmodSubmitCalls.fetch_add(1, std::memory_order_relaxed) + 1;
+        kmodMaybeTrace(n);
+    }
     return r;
 }
 
@@ -489,7 +503,8 @@ NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
-    const uint64_t t0 = kmodNowUs();
+    const bool trace = kmodTraceOn();
+    const uint64_t t0 = trace ? kmodNowUs() : 0;
     NativeMaliError err;
     {
         std::lock_guard<std::mutex> lock(kmod->mutex);
@@ -505,8 +520,10 @@ NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
         }
     }
     const NativeMaliResult r = to_result(err);
-    gKmodWaitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
-    gKmodWaitCalls.fetch_add(1, std::memory_order_relaxed);
+    if (trace) {
+        gKmodWaitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
+        gKmodWaitCalls.fetch_add(1, std::memory_order_relaxed);
+    }
     return r;
 }
 

@@ -3833,7 +3833,7 @@ static void completed(void *context) {
     a.prevCommitUs=r.committedUs;a.prevCtcUs=took;a.prevKpx=r.work.pixels>>10;
    }
   }
-  if(cmtIdx && (took >= 30000 || cmtEncUs >= 30000)) {
+  if(diagOn() && cmtIdx && (took >= 30000 || cmtEncUs >= 30000)) {
    static std::atomic<uint64_t> gLastCmtUs{0};
    const uint64_t now = nowUs();
    const uint64_t prev = gLastCmtUs.load(std::memory_order_relaxed);
@@ -3851,7 +3851,7 @@ static void completed(void *context) {
    }
   }
   const uint64_t done = gCompleted.load();
-  if(done == 1 || done == 5 || (done > 0 && (done % 25) == 0)) {
+  if(diagOn() && (done == 1 || done == 5 || (done > 0 && (done % 25) == 0))) {
    char p[128];
    snprintf(p, sizeof p, "/NativeMali/PERF_c%llu_p%llu_pi%llums_gp%llums_sc%llums_fl%llums_wt%llums_mx%llums",
     (unsigned long long)done,
