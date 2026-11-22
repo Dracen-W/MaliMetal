@@ -3,8 +3,8 @@
  * Userspace IOVA allocator. See NativeMaliIovaAllocator.h.
  *
  * The policy is deliberately boring: a sorted free list, first fit, merge on
- * release. It is not a performance allocator; it is one that can be explained
- * and tested, which matters more while the kernel side is still being proven.
+ * release. Allocations are kept sorted by IOVA so overlap checks and frees run
+ * in O(log N) instead of linear scans.
  */
 #include "NativeMaliIovaAllocator.h"
 
@@ -27,9 +27,15 @@ NativeMaliIovaAllocator::NativeMaliIovaAllocator(uint64_t base, uint64_t size,
 }
 
 bool NativeMaliIovaAllocator::overlaps_allocation(uint64_t start, uint64_t end) const {
-    for (const auto &allocation : allocations_) {
-        const uint64_t other_end = allocation.iova + allocation.bytes;
-        if (start < other_end && allocation.iova < end) {
+    auto it = std::lower_bound(
+        allocations_.begin(), allocations_.end(), start,
+        [](const Allocation &allocation, uint64_t value) { return allocation.iova < value; });
+    if (it != allocations_.end() && it->iova < end) {
+        return true;
+    }
+    if (it != allocations_.begin()) {
+        const auto prev = it - 1;
+        if (prev->iova + prev->bytes > start) {
             return true;
         }
     }
@@ -82,7 +88,10 @@ bool NativeMaliIovaAllocator::reserve(uint64_t bytes, uint64_t *iova) {
         } else {
             it->start = end;
         }
-        allocations_.push_back({start, bytes});
+        auto alloc_pos = std::lower_bound(
+            allocations_.begin(), allocations_.end(), start,
+            [](const Allocation &allocation, uint64_t value) { return allocation.iova < value; });
+        allocations_.insert(alloc_pos, {start, bytes});
         *iova = start;
         return true;
     }
@@ -93,12 +102,10 @@ bool NativeMaliIovaAllocator::free(uint64_t iova, uint64_t bytes, uint64_t guard
     if (!valid_ || bytes == 0 || !aligned(iova, page_bytes_) || !aligned(bytes, page_bytes_)) {
         return false;
     }
-    auto it = std::find_if(
-        allocations_.begin(), allocations_.end(),
-        [iova, bytes](const Allocation &allocation) {
-            return allocation.iova == iova && allocation.bytes == bytes;
-        });
-    if (it == allocations_.end()) {
+    auto it = std::lower_bound(
+        allocations_.begin(), allocations_.end(), iova,
+        [](const Allocation &allocation, uint64_t value) { return allocation.iova < value; });
+    if (it == allocations_.end() || it->iova != iova || it->bytes != bytes) {
         return false;
     }
     allocations_.erase(it);

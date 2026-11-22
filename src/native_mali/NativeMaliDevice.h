@@ -50,9 +50,19 @@ public:
     NativeMaliError submit(uint64_t job_chain, uint64_t wait_fence, uint64_t wait_timeout_ns,
                            uint64_t *fence);
 
-    /* Wait for one fence. On success the fence becomes Signaled and its
-     * quarantined ranges return to the allocator. */
+    /* Wait for one fence. On success the fence (and its dependency chain)
+     * becomes Signaled and its quarantined ranges return to the allocator. */
     NativeMaliError wait(uint64_t fence, uint64_t timeout_ns);
+
+    /* Split-phase wait helpers for multi-threaded callers that must not hold
+     * their mutex across a blocking kernel wait_fence() call.
+     * wait_preflight() returns:
+     *   - None: already Signaled (no kernel call needed)
+     *   - NotReady: Pending (caller should invoke client.wait_fence() unlocked,
+     *               then call wait_complete(fence) under lock)
+     *   - InvalidArgument / DeviceLost: immediate error. */
+    NativeMaliError wait_preflight(uint64_t fence) const;
+    NativeMaliError wait_complete(uint64_t fence);
 
     /* Read GetStatus and compare it with the previous reading. Any change in
      * `faults` or `resets` means in-flight work is gone: pending fences become
@@ -68,6 +78,9 @@ public:
     NativeMaliError reset();
 
 private:
+    void resolve_and_release(uint64_t fence);
+    bool ensure_fence_capacity();
+
     NativeMaliClient &client_;
     NativeMaliBoTable &buffers_;
     NativeMaliIovaAllocator &iova_;

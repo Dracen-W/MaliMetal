@@ -28,11 +28,11 @@ NativeMaliError NativeMaliClient::call(uint32_t selector, const void *input,
     const NativeMaliAbiMethodRecord *method = NativeMaliAbiFindMethod(selector);
     if (!NativeMaliAbiRecordSizesMatch(method, input_bytes, output_bytes)) {
         /* A programming error in this client, not a kernel refusal. */
-        last_kern_return_ = 0;
+        last_kern_return_.store(0, std::memory_order_relaxed);
         return NativeMaliError::InvalidArgument;
     }
     const int code = transport_.call(selector, input, input_bytes, output, output_bytes);
-    last_kern_return_ = code;
+    last_kern_return_.store(code, std::memory_order_relaxed);
     if (code != 0) {
         return NativeMaliErrorFromKernReturn(code);
     }

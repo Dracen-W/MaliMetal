@@ -139,8 +139,46 @@ NativeMaliError NativeMaliDevice::cpu_unmap(uint64_t handle, uint32_t token) {
     return NativeMaliError::None;
 }
 
+void NativeMaliDevice::resolve_and_release(uint64_t fence) {
+    uint64_t resolved[64];
+    const size_t total = fences_.resolve_chain(fence, resolved, 64);
+    const size_t limit = total < 64 ? total : 64;
+    for (size_t i = 0; i < limit; ++i) {
+        iova_.release(resolved[i]);
+    }
+}
+
+bool NativeMaliDevice::ensure_fence_capacity() {
+    if (fences_.count() < NativeMaliFenceTracker::kCapacity) {
+        return true;
+    }
+    /* First recycle the oldest already-Signaled (or Lost) fence. */
+    if (fences_.evict_oldest_finished()) {
+        return true;
+    }
+    /* If all kCapacity entries are still Pending (e.g., intermediate jobs that
+     * were never explicitly waited on), non-blockingly poll the oldest pending
+     * fences with timeout=0 and reap any the kernel has already completed. */
+    for (unsigned probe = 0; probe < 32; ++probe) {
+        const uint64_t candidate = fences_.oldest_pending();
+        if (candidate == 0) {
+            break;
+        }
+        if (client_.wait_fence(candidate, 0) != NativeMaliError::None) {
+            break;
+        }
+        resolve_and_release(candidate);
+        if (fences_.evict_oldest_finished()) {
+            return true;
+        }
+    }
+    return fences_.count() < NativeMaliFenceTracker::kCapacity;
+}
+
 NativeMaliError NativeMaliDevice::submit(uint64_t job_chain, uint64_t wait_fence,
                                          uint64_t wait_timeout_ns, uint64_t *fence) {
+    uint64_t kernel_wait_fence = wait_fence;
+    uint64_t kernel_wait_timeout = wait_timeout_ns;
     if (wait_fence != 0) {
         /* The ABI says a dependency is "zero or an earlier fence of this
          * client". A fence we never received, or one a reset destroyed, must
@@ -152,14 +190,23 @@ NativeMaliError NativeMaliDevice::submit(uint64_t job_chain, uint64_t wait_fence
         if (state == NativeMaliFenceState::Unknown) {
             return NativeMaliError::InvalidArgument;
         }
+        if (state == NativeMaliFenceState::Signaled) {
+            /* Already completed: skip redundant kernel wait lookup. */
+            kernel_wait_fence = 0;
+            kernel_wait_timeout = 0;
+        }
+    }
+    if (!ensure_fence_capacity()) {
+        return NativeMaliError::Busy;
     }
     uint64_t submitted = 0;
     const NativeMaliError error =
-        client_.submit(job_chain, wait_fence, wait_timeout_ns, &submitted);
+        client_.submit(job_chain, kernel_wait_fence, kernel_wait_timeout, &submitted);
     if (error != NativeMaliError::None) {
         return error;
     }
-    if (!fences_.track(submitted)) {
+    const uint64_t dep = (kernel_wait_fence != 0) ? wait_fence : 0;
+    if (!fences_.track(submitted, dep)) {
         /* The job is already in the kernel but cannot be tracked. Reporting
          * success would let a later wait on it be skipped. */
         return NativeMaliError::Unsupported;
@@ -168,7 +215,7 @@ NativeMaliError NativeMaliDevice::submit(uint64_t job_chain, uint64_t wait_fence
     return NativeMaliError::None;
 }
 
-NativeMaliError NativeMaliDevice::wait(uint64_t fence, uint64_t timeout_ns) {
+NativeMaliError NativeMaliDevice::wait_preflight(uint64_t fence) const {
     const NativeMaliFenceState tracked = fences_.state(fence);
     if (tracked == NativeMaliFenceState::Unknown) {
         return NativeMaliError::InvalidArgument;
@@ -179,17 +226,35 @@ NativeMaliError NativeMaliDevice::wait(uint64_t fence, uint64_t timeout_ns) {
          * the new owner must not be reported as this job's completion. */
         return NativeMaliError::DeviceLost;
     }
+    if (tracked == NativeMaliFenceState::Signaled) {
+        return NativeMaliError::None;
+    }
+    return NativeMaliError::NotReady;
+}
+
+NativeMaliError NativeMaliDevice::wait_complete(uint64_t fence) {
+    const NativeMaliFenceState tracked = fences_.state(fence);
+    if (tracked == NativeMaliFenceState::Signaled) {
+        return NativeMaliError::None;
+    }
+    if (tracked != NativeMaliFenceState::Pending) {
+        /* A reset lost this fence while WaitFence was in flight. */
+        return NativeMaliError::DeviceLost;
+    }
+    resolve_and_release(fence);
+    return NativeMaliError::None;
+}
+
+NativeMaliError NativeMaliDevice::wait(uint64_t fence, uint64_t timeout_ns) {
+    const NativeMaliError pre = wait_preflight(fence);
+    if (pre != NativeMaliError::NotReady) {
+        return pre;
+    }
     const NativeMaliError error = client_.wait_fence(fence, timeout_ns);
     if (error != NativeMaliError::None) {
         return error;
     }
-    if (!fences_.resolve(fence)) {
-        /* WaitFence succeeded for a fence this client should not be waiting
-         * on, or one a reset already lost. Do not pretend it completed. */
-        return NativeMaliError::DeviceLost;
-    }
-    iova_.release(fence);
-    return NativeMaliError::None;
+    return wait_complete(fence);
 }
 
 NativeMaliError NativeMaliDevice::reset() {

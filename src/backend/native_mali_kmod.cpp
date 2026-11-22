@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <ctime>
 #include <fcntl.h>
+#include <mutex>
 #include <unistd.h>
 
 namespace {
@@ -33,7 +34,7 @@ uint64_t kmodNowUs() {
 }
 
 void kmodMaybeTrace(uint64_t submits) {
-    if (submits != 1 && submits != 5 && (submits % 25) != 0) return;
+    if (submits != 1 && submits != 25 && (submits % 250) != 0) return;
     char p[120];
     std::snprintf(p, sizeof(p),
         "/NativeMali/KMOD_s%llu_sy%llums(%llu/%lluM)_sb%llums_wt%llums(%llu)",
@@ -138,6 +139,7 @@ struct NativeMaliKmod {
 #endif
     }
 
+    std::mutex mutex;
     CallbackTransport transport;
     NativeMaliClient client;
     NativeMaliBoTable buffers;
@@ -318,6 +320,7 @@ NativeMaliResult native_mali_kmod_alloc(NativeMaliKmod *kmod, uint64_t bytes,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.alloc(bytes, handle));
 }
 
@@ -326,6 +329,7 @@ NativeMaliResult native_mali_kmod_import_host(NativeMaliKmod *kmod, const void *
     if (kmod == nullptr || host_ptr == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.import_host(
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(host_ptr)), bytes, handle));
 }
@@ -336,7 +340,11 @@ NativeMaliResult native_mali_kmod_bo_sync(NativeMaliKmod *kmod, uint64_t handle,
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
     const uint64_t t0 = kmodNowUs();
-    const NativeMaliResult r = to_result(kmod->device.sync_bo(handle, offset, bytes, op));
+    NativeMaliResult r;
+    {
+        std::lock_guard<std::mutex> lock(kmod->mutex);
+        r = to_result(kmod->device.sync_bo(handle, offset, bytes, op));
+    }
     gKmodSyncUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
     gKmodSyncCalls.fetch_add(1, std::memory_order_relaxed);
     gKmodSyncBytes.fetch_add(bytes, std::memory_order_relaxed);
@@ -348,6 +356,7 @@ NativeMaliResult native_mali_kmod_map(NativeMaliKmod *kmod, uint64_t handle,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.map(handle, permissions, iova));
 }
 
@@ -356,6 +365,7 @@ NativeMaliResult native_mali_kmod_free(NativeMaliKmod *kmod, uint64_t handle,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.free(handle, guard_fence));
 }
 
@@ -364,6 +374,7 @@ NativeMaliResult native_mali_kmod_cpu_map(NativeMaliKmod *kmod, uint64_t handle,
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.cpu_map(handle, token, bytes));
 }
 
@@ -372,6 +383,7 @@ NativeMaliResult native_mali_kmod_cpu_unmap(NativeMaliKmod *kmod, uint64_t handl
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.cpu_unmap(handle, token));
 }
 
@@ -380,6 +392,7 @@ NativeMaliResult native_mali_kmod_cpu_map_address(NativeMaliKmod *kmod, uint64_t
                                                   uint64_t *bytes) {
     if (kmod == nullptr || token == nullptr || address == nullptr || bytes == nullptr)
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lock(kmod->mutex);
 #if defined(__APPLE__)
     if (kmod->connection == 0) {
 #if defined(MALIMETAL_TESTING)
@@ -433,6 +446,7 @@ NativeMaliResult native_mali_kmod_cpu_address_unmap(NativeMaliKmod *kmod, uint32
                                                     void *address) {
     if (kmod == nullptr || token == 0 || address == nullptr)
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lock(kmod->mutex);
 #if defined(__APPLE__)
     if (kmod->connection == 0) {
 #if defined(MALIMETAL_TESTING)
@@ -459,7 +473,11 @@ NativeMaliResult native_mali_kmod_submit(NativeMaliKmod *kmod, uint64_t chain,
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
     const uint64_t t0 = kmodNowUs();
-    const NativeMaliResult r = to_result(kmod->device.submit(chain, wait_fence, wait_timeout_ns, fence));
+    NativeMaliResult r;
+    {
+        std::lock_guard<std::mutex> lock(kmod->mutex);
+        r = to_result(kmod->device.submit(chain, wait_fence, wait_timeout_ns, fence));
+    }
     gKmodSubmitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
     const uint64_t n = gKmodSubmitCalls.fetch_add(1, std::memory_order_relaxed) + 1;
     kmodMaybeTrace(n);
@@ -472,7 +490,21 @@ NativeMaliResult native_mali_kmod_wait(NativeMaliKmod *kmod, uint64_t fence,
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
     const uint64_t t0 = kmodNowUs();
-    const NativeMaliResult r = to_result(kmod->device.wait(fence, timeout_ns));
+    NativeMaliError err;
+    {
+        std::lock_guard<std::mutex> lock(kmod->mutex);
+        err = kmod->device.wait_preflight(fence);
+    }
+    if (err == NativeMaliError::NotReady) {
+        /* Release mutex while blocked in kernel WaitFence so concurrent
+         * alloc/map/bo_sync calls on other threads do not stall. */
+        err = kmod->client.wait_fence(fence, timeout_ns);
+        if (err == NativeMaliError::None) {
+            std::lock_guard<std::mutex> lock(kmod->mutex);
+            err = kmod->device.wait_complete(fence);
+        }
+    }
+    const NativeMaliResult r = to_result(err);
     gKmodWaitUs.fetch_add(kmodNowUs() - t0, std::memory_order_relaxed);
     gKmodWaitCalls.fetch_add(1, std::memory_order_relaxed);
     return r;
@@ -482,6 +514,7 @@ NativeMaliResult native_mali_kmod_refresh_status(NativeMaliKmod *kmod) {
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.refresh_status());
 }
 
@@ -489,5 +522,6 @@ NativeMaliResult native_mali_kmod_reset(NativeMaliKmod *kmod) {
     if (kmod == nullptr) {
         return NATIVE_MALI_RESULT_INVALID_ARGUMENT;
     }
+    std::lock_guard<std::mutex> lock(kmod->mutex);
     return to_result(kmod->device.reset());
 }

@@ -13,6 +13,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <atomic>
+
 #include "NativeMaliABI.h"
 #include "NativeMaliError.h"
 #include "NativeMaliTransport.h"
@@ -49,7 +51,7 @@ public:
     NativeMaliError reset();
 
     /* The raw code of the last call, for diagnosis. Not an API to branch on. */
-    int last_kern_return() const { return last_kern_return_; }
+    int last_kern_return() const { return last_kern_return_.load(std::memory_order_relaxed); }
 
 private:
     NativeMaliError call(uint32_t selector, const void *input, size_t input_bytes,
@@ -57,7 +59,7 @@ private:
 
     NativeMaliTransport &transport_;
     uint32_t abi_version_;
-    int last_kern_return_ = 0;
+    std::atomic<int> last_kern_return_{0};
 };
 
 #endif /* MALIMETAL_NATIVE_MALI_CLIENT_H */

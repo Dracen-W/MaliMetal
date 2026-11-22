@@ -31,7 +31,9 @@ struct NativeMaliBo {
 
 class NativeMaliBoTable {
 public:
-    static constexpr size_t kCapacity = 1024;
+    static constexpr size_t kCapacity = 4096;
+
+    NativeMaliBoTable();
 
     /* Register a handle returned by BoAlloc. */
     bool add(uint64_t handle, uint64_t bytes);
@@ -56,10 +58,20 @@ public:
     size_t count() const { return count_; }
 
 private:
+    static constexpr size_t kHashBuckets = 8192; /* power of 2, 2x kCapacity */
+    static constexpr uint16_t kEmpty = 0xFFFFu;
+    static constexpr uint16_t kTombstone = 0xFFFEu;
+
+    static size_t hash_handle(uint64_t handle);
+    size_t find_index(uint64_t handle) const;
+    void hash_insert(uint64_t handle, uint16_t index);
+    void hash_rebuild();
     NativeMaliBo *mutable_find(uint64_t handle);
 
     std::array<NativeMaliBo, kCapacity> entries_{};
+    std::array<uint16_t, kHashBuckets> buckets_{};
     size_t count_ = 0;
+    size_t tombstones_ = 0;
 };
 
 #endif /* MALIMETAL_NATIVE_MALI_BO_TABLE_H */

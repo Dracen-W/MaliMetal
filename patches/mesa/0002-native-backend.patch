@@ -182,7 +182,7 @@ index 0000000..6bb4dff
 +      return NULL;
 +   }
 +
-+   pan_kmod_bo_init(&bo->base, dev, exclusive_vm, size, flags, ndev->next_handle++);
++   pan_kmod_bo_init(&bo->base, dev, exclusive_vm, size, flags, __atomic_fetch_add(&ndev->next_handle, 1, __ATOMIC_RELAXED));
 +   bo->handle = handle;
 +   return &bo->base;
 +}
@@ -383,7 +383,7 @@ index 0000000..6bb4dff
 +   const uint32_t bo_flags =
 +      flags | PAN_KMOD_BO_FLAG_IMPORTED | PAN_KMOD_BO_FLAG_WB_MMAP;
 +   simple_mtx_lock(&dev->handle_to_bo.lock);
-+   const uint32_t local_handle = ndev->next_handle++;
++   const uint32_t local_handle = __atomic_fetch_add(&ndev->next_handle, 1, __ATOMIC_RELAXED);
 +   pan_kmod_bo_init(&bo->base, dev, exclusive_vm, aligned_size, bo_flags,
 +                    local_handle);
 +   bo->handle = handle;
