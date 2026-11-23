@@ -150,7 +150,7 @@ def main() -> int:
         "src/frontend/NativeBridgeMetalFrontend.h":
             "5ec91f2f515c352890f6a6f95215e959ecf6728af1a411e0e4f2a78b5192829c",
         "src/frontend/NativeBridgeMetalFrontend.mm":
-            "bf7c004c245eee42e4b77e84b4603747d370bcff69451da5dc3a07cb0ceb4767",
+            "0473d35b61a1bfed68e591300cdff8d89aafae78c1439cb26f268e1b03f345d4",
     }
     for rel, expected in imported.items():
         digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
