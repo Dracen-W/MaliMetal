@@ -889,7 +889,12 @@ static NSString *compileArgument(NSString *text) {
 }
 static NSString *compileArguments(MTLCompileOptions *options) {
  NSMutableArray<NSString *> *arguments=[NSMutableArray arrayWithObjects:@"--driver-mode=metal",@"-x",@"metal",nil];
- const NSUInteger version=options && options.languageVersion?(NSUInteger)options.languageVersion:(NSUInteger)MTLLanguageVersion3_1;
+#if TARGET_OS_IPHONE && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (__IPHONE_OS_VERSION_MIN_REQUIRED < 170000)
+ const NSUInteger defaultVersion=(NSUInteger)MTLLanguageVersion3_0;
+#else
+ const NSUInteger defaultVersion=(NSUInteger)MTLLanguageVersion3_1;
+#endif
+ const NSUInteger version=options && options.languageVersion?(NSUInteger)options.languageVersion:defaultVersion;
  const unsigned major=(unsigned)(version>>16),minor=(unsigned)(version&0xffff);
  [arguments addObject:[NSString stringWithFormat:major>=3?@"-std=metal%u.%u":@"-std=ios-metal%u.%u",major,minor]];
  const SEL modeSelector=sel_registerName("mathMode"),functionsSelector=sel_registerName("mathFloatingPointFunctions");
