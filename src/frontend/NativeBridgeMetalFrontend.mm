@@ -5394,13 +5394,17 @@ extern "C" id native_bridge_metal_open(const char *loader,const char *cache,uint
  // own _MTLDevice implementation.
  if(getenv("NMB_DEVICE_BASE_NSOBJECT"))base=[NSObject class];
 #endif
+#ifndef CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE
+#define CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE 0
+#endif
 #if TARGET_OS_IPHONE
- // The target's base class ABI (iPadOS 17.7.11, 536 bytes): the dynamic subclass adds no instance variables and reads none of the base's,
- // so only 17's size is held to; the arm64e build (iPadOS 27, whose _MTLDevice is larger) needs the class to exist.
-#if defined(__arm64e__)
- if(!base){NBLOG(@"native-metal: no _MTLDevice");return nil;}
+ // The dynamic subclass adds no instance variables and reads none of the base's.
+ // Set CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE=536 to enforce strict iPadOS 17.7.11 ABI,
+ // or 0 (default) to support iOS 16.7.16, iPadOS 17.7.11, and arm64e targets uniformly.
+#if defined(__arm64e__) || (CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE == 0)
+ if(!base || class_getInstanceSize(base)<sizeof(void *)){NBLOG(@"native-metal: no _MTLDevice");return nil;}
 #else
- if(!base || class_getInstanceSize(base)!=536){NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
+ if(!base || class_getInstanceSize(base)!=CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE){NBLOG(@"native-metal: unexpected _MTLDevice ABI");return nil;}
 #endif
 #endif
  if(!base)base=[NSObject class];

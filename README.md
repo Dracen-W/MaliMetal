@@ -1,3 +1,10 @@
+# MaliMetal (PanVK + Metal Bridge for Mali-G52)
+
+> **Status (2026-11-23)**
+> - **iPadOS 17.7.11 (`21H461`)**: Confirmed working on hardware with `Mali-G52`, **not yet fully stress-tested across all apps/workloads**.
+> - **iOS 16.7.16 (`20H392`)**: `_MTLDevice` ABI size guard parameterized via `CONFIG_XNU_DW_MALIMETAL_MTLDEVICE_SIZE=0` (resolving `ERR0_null`); ready for CI build and on-device verification.
+> - **Unified Config & CI**: See [`configs/example.config`](configs/example.config). In GitHub Actions (`.github/workflows/panvk-ios.yml`), select `target_os` (`ios16`, `ipados17`, or `universal`) and optional `config_overrides`. Artifacts are named `mali-gpu-<target_os>-<HHMM-DDMMYY>.addon` (e.g. `mali-gpu-ios16-1802-231126.addon`).
+
 # MaliMetal
 
 Metal frontend for the MediaTek MT6768 **Mali-G52 MC2** (Bifrost v7, Job
