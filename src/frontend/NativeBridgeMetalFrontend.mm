@@ -1750,6 +1750,18 @@ static NSError *functionLookupError(NBLibrary *library, NSString *name, NSString
 - (id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values error:(NSError **)error {
  return [self nb_newFunctionWithName:name constantValues:values zeroRest:NO error:error];
 }
+#if TARGET_OS_IPHONE && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (__IPHONE_OS_VERSION_MIN_REQUIRED < 170000)
+// iOS 16 CoreImage (CI::MetalDAGHelper) requests specialized kernels through _MTLLibrary's
+// private SPI instead of newFunctionWithName:constantValues:error:. Without it, NBLibrary
+// returns nil and CoreImage immediately dereferences [nil bitCodeHash] -> NULL.
+- (id<MTLFunction>)newSpecializedFunctionWithName:(NSString *)name constants:(MTLFunctionConstantValues *)values {
+ NSError *error=nil;
+ return [self newFunctionWithName:name constantValues:values error:&error];
+}
+- (id<MTLFunction>)newSpecializedFunctionWithName:(NSString *)name constants:(MTLFunctionConstantValues *)values error:(NSError **)error {
+ return [self newFunctionWithName:name constantValues:values error:error];
+}
+#endif
 - (id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values pipelineLibrary:(id)pipelineLibrary error:(NSError **)error {
  (void)pipelineLibrary;
  return [self newFunctionWithName:name constantValues:values error:error];
