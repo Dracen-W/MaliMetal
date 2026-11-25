@@ -9,6 +9,7 @@
 #import <objc/runtime.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,12 +20,7 @@
 
 extern "C" const char *nmb_last_error(void);
 
-#include <signal.h>
-
-static void diagTrapRegs(uintptr_t code, const char *s1, const char *s2) {
-    uint64_t r[8] = {};
-    if (s1) { size_t n = strnlen(s1, 32); memcpy(&r[0], s1, n); }
-    if (s2) { size_t n = strnlen(s2, 32); memcpy(&r[4], s2, n); }
+static void diagTrapU64(uintptr_t code, const uint64_t r[8]) {
     register uint64_t x0 asm("x0") = r[0];
     register uint64_t x1 asm("x1") = r[1];
     register uint64_t x2 asm("x2") = r[2];
@@ -37,12 +33,24 @@ static void diagTrapRegs(uintptr_t code, const char *s1, const char *s2) {
 }
 
 static void onMediaserverdUncaughtException(NSException *e) {
-    diagTrapRegs(0xdead0010, e.name.UTF8String, e.reason.UTF8String);
+    uint64_t r[8] = {};
+    NSArray<NSNumber *> *addrs = e.callStackReturnAddresses;
+    NSUInteger count = addrs.count;
+    NSUInteger start = (count > 2) ? 2 : 0;
+    for (NSUInteger i = 0; i < 8 && (start + i) < count; ++i) {
+        r[i] = [addrs[start + i] unsignedLongLongValue];
+    }
+    diagTrapU64(0xdead0012, r);
 }
 
 static void onMediaserverdSigabrt(int sig) {
     (void)sig;
-    diagTrapRegs(0xdead0011, nmb_last_error(), "SIGABRT");
+    uint64_t r[8] = {};
+    const char *err = nmb_last_error();
+    if (err) {
+        memcpy(&r[0], err, strnlen(err, 64));
+    }
+    diagTrapU64(0xdead0011, r);
 }
 
 namespace {
