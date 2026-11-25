@@ -6,6 +6,7 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <IOKit/IOKitLib.h>
+#import <objc/message.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -19,6 +20,9 @@
 #include "../frontend/NativeBridgeMetalFrontend.h"
 
 extern "C" const char *nmb_last_error(void);
+
+static char gLastMissing[32] = "none";
+static char gLastNilOp[32] = "none";
 
 static void diagTrapRegs(uintptr_t code, const char *s1, const char *s2) {
     uint64_t r[8] = {};
@@ -36,20 +40,64 @@ static void diagTrapRegs(uintptr_t code, const char *s1, const char *s2) {
 }
 
 static void onMediaserverdUncaughtException(NSException *e) {
-    const char *reason = e.reason.UTF8String;
-    const char *tail = reason ? reason : "no_reason";
-    if (reason) {
-        size_t len = strlen(reason);
-        if (len > 32) tail = reason + (len - 32);
-    }
-    const char *err = nmb_last_error();
-    diagTrapRegs(0xdead0013, tail, (err && *err) ? err : "no_nmb_err");
+    (void)e;
+    diagTrapRegs(0xdead0014, gLastMissing, gLastNilOp);
 }
 
 static void onMediaserverdSigabrt(int sig) {
     (void)sig;
-    const char *err = nmb_last_error();
-    diagTrapRegs(0xdead0011, (err && *err) ? err : "no_nmb_err", "SIGABRT");
+    diagTrapRegs(0xdead0011, gLastMissing, gLastNilOp);
+}
+
+struct NBCGRect {
+    double x, y, w, h;
+};
+
+static void installMediaserverdCoreImageDiag(void) {
+    static bool installed = false;
+    if (installed) return;
+    installed = true;
+
+    Class ciImageCls = objc_getClass("CIImage");
+    if (!ciImageCls) {
+        dlopen("/System/Library/Frameworks/CoreImage.framework/CoreImage", RTLD_LAZY);
+        ciImageCls = objc_getClass("CIImage");
+    }
+    if (ciImageCls) {
+        SEL sel = sel_registerName("imageByApplyingFilter:withInputParameters:");
+        Method m = class_getInstanceMethod(ciImageCls, sel);
+        if (m) {
+            typedef id (*OrigFn)(id, SEL, NSString *, NSDictionary *);
+            OrigFn orig = (OrigFn)method_getImplementation(m);
+            IMP hook = imp_implementationWithBlock(^id(id selfObj, NSString *name, NSDictionary *params) {
+                id ret = orig(selfObj, sel, name, params);
+                if (!ret && name) {
+                    snprintf(gLastNilOp, sizeof(gLastNilOp), "F:%s", name.UTF8String);
+                }
+                return ret;
+            });
+            method_setImplementation(m, hook);
+        }
+    }
+    Class ciColorKernelCls = objc_getClass("CIColorKernel");
+    if (ciColorKernelCls) {
+        SEL sel = sel_registerName("applyWithExtent:arguments:");
+        Method m = class_getInstanceMethod(ciColorKernelCls, sel);
+        if (m) {
+            typedef id (*OrigKFn)(id, SEL, NBCGRect, NSArray *);
+            OrigKFn orig = (OrigKFn)method_getImplementation(m);
+            SEL nameSel = sel_registerName("name");
+            IMP hook = imp_implementationWithBlock(^id(id selfObj, NBCGRect extent, NSArray *args) {
+                id ret = orig(selfObj, sel, extent, args);
+                if (!ret) {
+                    NSString *kn = [selfObj respondsToSelector:nameSel] ? ((NSString *(*)(id, SEL))objc_msgSend)(selfObj, nameSel) : nil;
+                    snprintf(gLastNilOp, sizeof(gLastNilOp), "K:%s", kn ? kn.UTF8String : "noname");
+                }
+                return ret;
+            });
+            method_setImplementation(m, hook);
+        }
+    }
 }
 
 namespace {
@@ -62,6 +110,7 @@ constexpr const char *kClientsPath = "/System/Library/Extensions/NativeMaliMetal
 constexpr const char *kShaderCacheDir = "/private/var/ngpu/cache";
 
 void onMissingSelector(const char *cls, const char *sel) {
+    snprintf(gLastMissing, sizeof(gLastMissing), "%s.%s", cls ? cls : "?", sel ? sel : "?");
     NSLog(@"NativeMaliMetal: unimplemented selector [%s %s]", cls ? cls : "?", sel ? sel : "?");
 }
 
@@ -107,6 +156,7 @@ void emitMaliOpenTrace(const char *tag, const char *msg) {
     if (prog && strcmp(prog, "mediaserverd") == 0) {
         NSSetUncaughtExceptionHandler(&onMediaserverdUncaughtException);
         signal(SIGABRT, &onMediaserverdSigabrt);
+        installMediaserverdCoreImageDiag();
     }
     NativeMaliPublishDecision decision = NativeMaliPublish(
         markerPresent, listCstr, prog ? prog : "", true);
