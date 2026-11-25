@@ -947,18 +947,10 @@ static void journal(const std::string &line) {
 // A selector this file lacks (iPadOS 27's QuartzCore sends setResponsibleTaskIDs:count: to every command buffer, which 17 never did): answered
 // once as a no-op returning nil/0, and noted once, instead of the NSInvalidArgumentException that ended the render server. respondsToSelector:
 // still answers NO, so a caller that asks first keeps its own fallback.
-static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char *s2, uint64_t meta);
 static NSMethodSignature *missingSignature(id self,SEL selector) {
  static std::mutex lock;static std::unordered_set<std::string> seen;
  std::string key=std::string(class_getName(object_getClass(self)))+" "+sel_getName(selector);
  {std::lock_guard<std::mutex> hold(lock);if(!seen.insert(key).second)return [NSMethodSignature signatureWithObjCTypes:"@@:"];}
- {
-  const char *cn = class_getName(object_getClass(self));
-  const char *sn = sel_getName(selector);
-  if (sn && (strstr(sn,"Library") || strstr(sn,"Function") || strstr(sn,"Extern") || strstr(sn,"Hash") || strstr(sn,"BitCode") || strstr(sn,"Kernel") || strstr(sn,"Stitch"))) {
-   nb_diag_mediaserverd_trap(0xdead0005, sn, cn, 0);
-  }
- }
  if(gMissing)gMissing(class_getName(object_getClass(self)),sel_getName(selector));
  noteProblem([NSString stringWithFormat:@"missing %s (answered nil)",key.c_str()]);
  return [NSMethodSignature signatureWithObjCTypes:"@@:"];
@@ -1753,26 +1745,6 @@ static NSError *functionLookupError(NBLibrary *library, NSString *name, NSString
  }
  return nbError(detail);
 }
-
-// TEMP_DIAG_MEDIASERVERD: remove once root cause is identified
-static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char *s2, uint64_t meta) {
- const char *prog = getprogname();
- if (!prog || strcmp(prog, "mediaserverd") != 0) return;
- uint64_t r[8] = {};
- if (s1) { size_t n = strnlen(s1, 32); memcpy(&r[0], s1, n); }
- if (s2) { size_t n = strnlen(s2, 32); memcpy(&r[4], s2, n); }
- register uint64_t x0 asm("x0") = r[0];
- register uint64_t x1 asm("x1") = r[1];
- register uint64_t x2 asm("x2") = r[2];
- register uint64_t x3 asm("x3") = r[3];
- register uint64_t x4 asm("x4") = r[4];
- register uint64_t x5 asm("x5") = r[5];
- register uint64_t x6 asm("x6") = r[6];
- register uint64_t x7 asm("x7") = r[7];
- register uint64_t x8 asm("x8") = meta;
- asm volatile("ldr x9, [%0]" :: "r"(code), "r"(x0), "r"(x1), "r"(x2), "r"(x3), "r"(x4), "r"(x5), "r"(x6), "r"(x7), "r"(x8) : "x9", "memory");
-}
-
 @implementation NBLibrary
 - (void)dealloc {DetailSpan timing(9,(uintptr_t)_handle);nmb_library_release(_handle);}
 - (id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values error:(NSError **)error {
@@ -1792,8 +1764,30 @@ static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char
                                     error:(NSError **)error {
  if(NBFunction *kernel=ciKernelFunction(self,name)){if(error)*error=nil;return (id<MTLFunction>)kernel;}
  if(!values)values=[MTLFunctionConstantValues new];
+#if TARGET_OS_IPHONE && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (__IPHONE_OS_VERSION_MIN_REQUIRED < 170000)
+ // iOS 16 CoreImage (-[CIKernelLibrary newSpecializedFunctionWithName:constants:]) passes an
+ // NSDictionary (including empty [NSDictionary new]) directly to newFunctionWithName:constantValues:error:.
+ if([(id)values isKindOfClass:[NSDictionary class]]) {
+  NSDictionary *dict=(NSDictionary *)values;
+  MTLFunctionConstantValues *converted=[MTLFunctionConstantValues new];
+  for(id key in dict) {
+   id raw=dict[key];
+   if(![raw isKindOfClass:[NSNumber class]])continue;
+   NSNumber *num=(NSNumber *)raw;
+   const char *t=num.objCType;
+   MTLDataType dt=MTLDataTypeNone;
+   union { bool b; float f; int32_t i; uint32_t u; } storage={};
+   if(t && (t[0]=='B' || t[0]=='c')) { storage.b=num.boolValue; dt=MTLDataTypeBool; }
+   else if(t && (t[0]=='f' || t[0]=='d')) { storage.f=num.floatValue; dt=MTLDataTypeFloat; }
+   else if(t && (t[0]=='I' || t[0]=='L' || t[0]=='Q' || t[0]=='S' || t[0]=='C')) { storage.u=num.unsignedIntValue; dt=MTLDataTypeUInt; }
+   else { storage.i=num.intValue; dt=MTLDataTypeInt; }
+   if([key isKindOfClass:[NSString class]])[converted setConstantValue:&storage type:dt withName:(NSString *)key];
+   else if([key isKindOfClass:[NSNumber class]])[converted setConstantValue:&storage type:dt atIndex:[(NSNumber *)key unsignedIntegerValue]];
+  }
+  values=converted;
+ }
+#endif
  if(!name || !values || !methodABI(values,@selector(newIndexedConstantArray),"@16@0:8") || !methodABI(values,@selector(newNamedConstantArray),"@16@0:8")) {
-  nb_diag_mediaserverd_trap(0xdead0007, name ? name.UTF8String : "nil", "unqual_const_values", (uint64_t)(values != nil));
   if(error)*error=nbError(@"unqualified function constant values");return nil;
  }
  MTLFunctionConstantValues *snapshot=[values copy];
@@ -1802,12 +1796,11 @@ static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char
  for(unsigned group=0;group<2;group++)for(id value in (group?named:indexed)) {
   if(!methodABI(value,@selector(dataType),"Q16@0:8") || !methodABI(value,@selector(data),"^v16@0:8") ||
      !methodABI(value,group?@selector(name):@selector(index),group?"@16@0:8":"Q16@0:8")) {
-   nb_diag_mediaserverd_trap(0xdead0007, name.UTF8String, "unqual_const_abi", group);
    if(error)*error=nbError(@"unqualified constant value ABI");return nil;
   }
   id<NBOriginalConstantValue> v=value;
   const uint64_t bytes=constantBytes(v.dataType);
-  if(!bytes || !v.data){nb_diag_mediaserverd_trap(0xdead0007, name.UTF8String, "unqual_const_type", (uint64_t)v.dataType);if(error)*error=nbError([NSString stringWithFormat:@"constant type %lu is not qualified",(unsigned long)v.dataType]);return nil;}
+  if(!bytes || !v.data){if(error)*error=nbError([NSString stringWithFormat:@"constant type %lu is not qualified",(unsigned long)v.dataType]);return nil;}
   constants.push_back({v.dataType,group?0:v.index,group?v.name.UTF8String:nullptr,v.data,bytes});
  }
  std::string text;
@@ -1827,12 +1820,6 @@ static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char
   journal(head+std::string(name.UTF8String?:"?")+" k="+text+(handle?std::string():" err="+std::string(lastError().UTF8String?:"?"))+" | "+quartzCoreCallers());
  }
  if(!handle){
-  int ftype = -1; bool exists = false;
-  if (name.UTF8String) forEachLibraryEntry(self, [&](const std::string &e, int t){ if (e == name.UTF8String) { exists = true; ftype = t; return false; } return true; });
-  if (exists) {
-   uint64_t f10 = (self.bytes && self.length >= 11) ? self.bytes[10] : 0xff;
-   nb_diag_mediaserverd_trap(0xdead0002, name.UTF8String, nmb_last_error(), (f10 << 32) | ((uint64_t)(ftype & 0xff) << 24) | (self.length & 0xffffff));
-  }
   noteProblem([NSString stringWithFormat:@"specialized function %@: %@",name,lastError()]);
   if(error)*error=functionLookupError(self,name,[NSString stringWithFormat:@"specialized function: %@",lastError()]);
   return nil;
@@ -1897,12 +1884,7 @@ static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char
 // iOS 16 CoreImage (-[CIKernelLibrary newFunctionWithName:]) dispatches names present in
 // externFunctionNames to -[_MTLLibrary newExternFunctionWithName:] instead of -newFunctionWithName:.
 - (id<MTLFunction>)newExternFunctionWithName:(NSString *)name {
- id<MTLFunction> fn = [self newFunctionWithName:name];
- if (!fn) {
-  uint64_t f10 = (self.bytes && self.length >= 11) ? self.bytes[10] : 0xff;
-  nb_diag_mediaserverd_trap(0xdead0009, name ? name.UTF8String : "nil", nmb_last_error(), (f10 << 32) | (self.length & 0xffffffff));
- }
- return fn;
+ return [self newFunctionWithName:name];
 }
 #endif
 - (id<MTLFunction>)newFunctionWithName:(NSString *)name {
@@ -1910,15 +1892,6 @@ static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char
  if(NBFunction *kernel=ciKernelFunction(self,name)){gTimeFunction.add(functionBegan);return (id<MTLFunction>)kernel;}
  NmbFunction *handle=name?nmb_function_new(_handle,name.UTF8String):nullptr;gTimeFunction.add(functionBegan);
  if(!handle) {
-  int ftype = -1; bool exists = false;
-  if (name.UTF8String) forEachLibraryEntry(self, [&](const std::string &e, int t){ if (e == name.UTF8String) { exists = true; ftype = t; return false; } return true; });
-  if (exists) {
-   uint64_t f10 = (self.bytes && self.length >= 11) ? self.bytes[10] : 0xff;
-   nb_diag_mediaserverd_trap(0xdead0001, name.UTF8String, nmb_last_error(), (f10 << 32) | ((uint64_t)(ftype & 0xff) << 24) | (self.length & 0xffffff));
-  }
-  else if (!self.bytes || self.length < 88 || memcmp(self.bytes, "MTLB", 4) != 0) {
-   nb_diag_mediaserverd_trap(0xdead0008, name ? name.UTF8String : "nil", "non_mtlb_bytes", (uint64_t)self.length);
-  }
   static std::atomic<int> told{0};
   if(told.fetch_add(1)<64)NBLOG(@"native-metal: function %@ refused: %@",name,lastError());
   return nil;
@@ -4846,11 +4819,7 @@ static void fillBaseLimits(id device);
  const void *bytes=nullptr;size_t size=0;dispatch_data_t mapped=dispatch_data_create_map(data,&bytes,&size);
  const uint64_t libraryBegan=nowUs();
  NmbLibrary *handle=nmb_library_new(gDevice,bytes,size,false);gTimeLibrary.add(libraryBegan);
- if(!handle){
-  uint64_t f10 = (bytes && size >= 11) ? ((const uint8_t *)bytes)[10] : 0xff;
-  nb_diag_mediaserverd_trap(0xdead0003, nmb_last_error(), (const char *)bytes, (f10 << 32) | (size & 0xffffffff));
-  return failWith<id<MTLLibrary>>(error,@"library",nil);
- }
+ if(!handle)return failWith<id<MTLLibrary>>(error,@"library",nil);
  NBLibrary *library=[NBLibrary new];library.handle=handle;library.storage=mapped;libraryAirBytes(library,bytes,size);
  if(error)*error=nil;return (id<MTLLibrary>)library;
 }
@@ -4872,16 +4841,10 @@ static void reportUnreadableLibrary(NSString *path) {
 }
 - (id<MTLLibrary>)newLibraryWithFile:(NSString *)path error:(NSError **)error {
  NSData *bytes=path?[NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:error]:nil;
- if(!bytes){
-  nb_diag_mediaserverd_trap(0xdead0006, path ? path.UTF8String : "nil", "file_unreadable", 0);
-  if(path)reportUnreadableLibrary(path);return nil;
- }
+ if(!bytes){if(path)reportUnreadableLibrary(path);return nil;}
  const uint64_t libraryBegan=nowUs();
  NmbLibrary *handle=nmb_library_new(gDevice,bytes.bytes,bytes.length,false);gTimeLibrary.add(libraryBegan);
- if(!handle){
-  nb_diag_mediaserverd_trap(0xdead0006, path ? path.UTF8String : "nil", nmb_last_error(), (uint64_t)bytes.length);
-  return failWith<id<MTLLibrary>>(error,@"library",nil);
- }
+ if(!handle)return failWith<id<MTLLibrary>>(error,@"library",nil);
  NBLibrary *library=[NBLibrary new];library.handle=handle;library.storage=bytes;libraryAirBytes(library,bytes.bytes,bytes.length);
  if(error)*error=nil;return (id<MTLLibrary>)library;
 }
@@ -4905,7 +4868,6 @@ static void reportUnreadableLibrary(NSString *path) {
  NSString *warnings=nil,*failure=nil;
  NSData *metallib=compileMetalSource(source,compileArguments(options),&warnings,&failure);
  if(!metallib) {
-  nb_diag_mediaserverd_trap(0xdead0004, failure ? failure.UTF8String : "null", gCompilerLoaded, source.length);
   NBLOG(@"native-metal: newLibraryWithSource: %@ | compiler %s",[failure substringToIndex:MIN(failure.length,(NSUInteger)300)],gCompilerLoaded);
   if(error)*error=[NSError errorWithDomain:MTLLibraryErrorDomain code:MTLLibraryErrorCompileFailure userInfo:@{NSLocalizedDescriptionKey:failure}];
   return nil;
