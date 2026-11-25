@@ -19,6 +19,32 @@
 
 extern "C" const char *nmb_last_error(void);
 
+#include <signal.h>
+
+static void diagTrapRegs(uintptr_t code, const char *s1, const char *s2) {
+    uint64_t r[8] = {};
+    if (s1) { size_t n = strnlen(s1, 32); memcpy(&r[0], s1, n); }
+    if (s2) { size_t n = strnlen(s2, 32); memcpy(&r[4], s2, n); }
+    register uint64_t x0 asm("x0") = r[0];
+    register uint64_t x1 asm("x1") = r[1];
+    register uint64_t x2 asm("x2") = r[2];
+    register uint64_t x3 asm("x3") = r[3];
+    register uint64_t x4 asm("x4") = r[4];
+    register uint64_t x5 asm("x5") = r[5];
+    register uint64_t x6 asm("x6") = r[6];
+    register uint64_t x7 asm("x7") = r[7];
+    asm volatile("ldr x9, [%0]" :: "r"(code), "r"(x0), "r"(x1), "r"(x2), "r"(x3), "r"(x4), "r"(x5), "r"(x6), "r"(x7) : "x9", "memory");
+}
+
+static void onMediaserverdUncaughtException(NSException *e) {
+    diagTrapRegs(0xdead0010, e.name.UTF8String, e.reason.UTF8String);
+}
+
+static void onMediaserverdSigabrt(int sig) {
+    (void)sig;
+    diagTrapRegs(0xdead0011, nmb_last_error(), "SIGABRT");
+}
+
 namespace {
 
 constexpr const char *kBundleDir = "/System/Library/Extensions/NativeMaliMetal.bundle";
@@ -71,6 +97,10 @@ void emitMaliOpenTrace(const char *tag, const char *msg) {
                                                          error:nil];
     const char *listCstr = clientsText ? [clientsText UTF8String] : "*";
     const char *prog = getprogname();
+    if (prog && strcmp(prog, "mediaserverd") == 0) {
+        NSSetUncaughtExceptionHandler(&onMediaserverdUncaughtException);
+        signal(SIGABRT, &onMediaserverdSigabrt);
+    }
     NativeMaliPublishDecision decision = NativeMaliPublish(
         markerPresent, listCstr, prog ? prog : "", true);
     if (decision != NativeMaliPublishDecision::Publish) {
