@@ -1745,6 +1745,26 @@ static NSError *functionLookupError(NBLibrary *library, NSString *name, NSString
  }
  return nbError(detail);
 }
+
+// TEMP_DIAG_MEDIASERVERD: remove once root cause is identified
+static void nb_diag_mediaserverd_trap(uintptr_t code, const char *s1, const char *s2, uint64_t meta) {
+ const char *prog = getprogname();
+ if (!prog || strcmp(prog, "mediaserverd") != 0) return;
+ uint64_t r[8] = {};
+ if (s1) { size_t n = strnlen(s1, 32); memcpy(&r[0], s1, n); }
+ if (s2) { size_t n = strnlen(s2, 32); memcpy(&r[4], s2, n); }
+ register uint64_t x0 asm("x0") = r[0];
+ register uint64_t x1 asm("x1") = r[1];
+ register uint64_t x2 asm("x2") = r[2];
+ register uint64_t x3 asm("x3") = r[3];
+ register uint64_t x4 asm("x4") = r[4];
+ register uint64_t x5 asm("x5") = r[5];
+ register uint64_t x6 asm("x6") = r[6];
+ register uint64_t x7 asm("x7") = r[7];
+ register uint64_t x8 asm("x8") = meta;
+ asm volatile("ldr x9, [%0]" :: "r"(code), "r"(x0), "r"(x1), "r"(x2), "r"(x3), "r"(x4), "r"(x5), "r"(x6), "r"(x7), "r"(x8) : "x9", "memory");
+}
+
 @implementation NBLibrary
 - (void)dealloc {DetailSpan timing(9,(uintptr_t)_handle);nmb_library_release(_handle);}
 - (id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values error:(NSError **)error {
@@ -1797,6 +1817,12 @@ static NSError *functionLookupError(NBLibrary *library, NSString *name, NSString
   journal(head+std::string(name.UTF8String?:"?")+" k="+text+(handle?std::string():" err="+std::string(lastError().UTF8String?:"?"))+" | "+quartzCoreCallers());
  }
  if(!handle){
+  int ftype = -1; bool exists = false;
+  if (name.UTF8String) forEachLibraryEntry(self, [&](const std::string &e, int t){ if (e == name.UTF8String) { exists = true; ftype = t; return false; } return true; });
+  if (exists) {
+   uint64_t f10 = (self.bytes && self.length >= 11) ? self.bytes[10] : 0xff;
+   nb_diag_mediaserverd_trap(0xdead0002, name.UTF8String, nmb_last_error(), (f10 << 32) | ((uint64_t)(ftype & 0xff) << 24) | (self.length & 0xffffff));
+  }
   noteProblem([NSString stringWithFormat:@"specialized function %@: %@",name,lastError()]);
   if(error)*error=functionLookupError(self,name,[NSString stringWithFormat:@"specialized function: %@",lastError()]);
   return nil;
@@ -1869,6 +1895,12 @@ static NSError *functionLookupError(NBLibrary *library, NSString *name, NSString
  if(NBFunction *kernel=ciKernelFunction(self,name)){gTimeFunction.add(functionBegan);return (id<MTLFunction>)kernel;}
  NmbFunction *handle=name?nmb_function_new(_handle,name.UTF8String):nullptr;gTimeFunction.add(functionBegan);
  if(!handle) {
+  int ftype = -1; bool exists = false;
+  if (name.UTF8String) forEachLibraryEntry(self, [&](const std::string &e, int t){ if (e == name.UTF8String) { exists = true; ftype = t; return false; } return true; });
+  if (exists) {
+   uint64_t f10 = (self.bytes && self.length >= 11) ? self.bytes[10] : 0xff;
+   nb_diag_mediaserverd_trap(0xdead0001, name.UTF8String, nmb_last_error(), (f10 << 32) | ((uint64_t)(ftype & 0xff) << 24) | (self.length & 0xffffff));
+  }
   static std::atomic<int> told{0};
   if(told.fetch_add(1)<64)NBLOG(@"native-metal: function %@ refused: %@",name,lastError());
   return nil;
@@ -4796,7 +4828,11 @@ static void fillBaseLimits(id device);
  const void *bytes=nullptr;size_t size=0;dispatch_data_t mapped=dispatch_data_create_map(data,&bytes,&size);
  const uint64_t libraryBegan=nowUs();
  NmbLibrary *handle=nmb_library_new(gDevice,bytes,size,false);gTimeLibrary.add(libraryBegan);
- if(!handle)return failWith<id<MTLLibrary>>(error,@"library",nil);
+ if(!handle){
+  uint64_t f10 = (bytes && size >= 11) ? ((const uint8_t *)bytes)[10] : 0xff;
+  nb_diag_mediaserverd_trap(0xdead0003, nmb_last_error(), (const char *)bytes, (f10 << 32) | (size & 0xffffffff));
+  return failWith<id<MTLLibrary>>(error,@"library",nil);
+ }
  NBLibrary *library=[NBLibrary new];library.handle=handle;library.storage=mapped;libraryAirBytes(library,bytes,size);
  if(error)*error=nil;return (id<MTLLibrary>)library;
 }
@@ -4845,6 +4881,7 @@ static void reportUnreadableLibrary(NSString *path) {
  NSString *warnings=nil,*failure=nil;
  NSData *metallib=compileMetalSource(source,compileArguments(options),&warnings,&failure);
  if(!metallib) {
+  nb_diag_mediaserverd_trap(0xdead0004, failure ? failure.UTF8String : "null", gCompilerLoaded, source.length);
   NBLOG(@"native-metal: newLibraryWithSource: %@ | compiler %s",[failure substringToIndex:MIN(failure.length,(NSUInteger)300)],gCompilerLoaded);
   if(error)*error=[NSError errorWithDomain:MTLLibraryErrorDomain code:MTLLibraryErrorCompileFailure userInfo:@{NSLocalizedDescriptionKey:failure}];
   return nil;
