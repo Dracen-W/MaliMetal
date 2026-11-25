@@ -1604,6 +1604,10 @@ static void noteUnalignedTexture(MTLTextureDescriptor *d,NSUInteger offset,NSUIn
 @property(nonatomic) std::string constantsText;   // name:type:hex of each constant value it was specialized with (the journal's)
 @property(nonatomic,strong) NBLibrary *library;      // where it came from (stitching reads its bitcode), and the values it was
 @property(nonatomic,strong) NSData *bitCodeHashData;
+#if TARGET_OS_IPHONE && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (__IPHONE_OS_VERSION_MIN_REQUIRED < 170000)
+@property(nonatomic,strong) NSArray *cachedArguments;
+@property(nonatomic) BOOL argumentsResolved;
+#endif
 @property(nonatomic,strong) MTLFunctionConstantValues *constantValues;   // specialized with (nil: none), for the zero-rest rebuild of a refused pipeline
 @end
 @interface NBFunctionConstant : NSObject
@@ -4322,6 +4326,41 @@ static id computeReflection(const NmbComputePipelineDescriptor *p) {
  NBComputePipelineReflection *reflection=[NBComputePipelineReflection new];reflection.argumentList=reflectionArguments(json[@"bindings"]);
  return reflection;
 }
+#if TARGET_OS_IPHONE && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && (__IPHONE_OS_VERSION_MIN_REQUIRED < 170000)
+// iOS 16 CoreImage inspects -[_MTLFunction arguments] (private Metal SPI returning NSArray<MTLArgument *> *)
+// to validate kernel parameters (such as scalar float arguments in PortraitFilters' _pf_mixKernel1).
+@implementation NBFunction (NBFunctionArguments)
+- (NSArray *)arguments {
+ @synchronized(self) {
+  if(self.argumentsResolved)return self.cachedArguments;
+  self.argumentsResolved=YES;
+  if(!self.handle)return nil;
+  NSDictionary *json=nil;
+  NSArray *bindings=nil;
+  if(self.functionType==MTLFunctionTypeVertex || self.functionType==MTLFunctionTypeFragment) {
+   NmbRenderPipelineDescriptor rp={};
+   if(self.functionType==MTLFunctionTypeVertex)rp.vertex=self.handle;
+   else rp.fragment=self.handle;
+   json=reflectionJSON(nmb_render_pipeline_reflection(&rp),"function");
+   bindings=json[self.functionType==MTLFunctionTypeVertex?@"vertex":@"fragment"];
+  } else {
+   NmbComputePipelineDescriptor cp={};
+   cp.function=self.handle;
+   json=reflectionJSON(nmb_compute_pipeline_reflection(&cp),"function");
+   bindings=json[@"bindings"];
+   if(!bindings) {
+    NmbRenderPipelineDescriptor rp={};
+    rp.fragment=self.handle;
+    json=reflectionJSON(nmb_render_pipeline_reflection(&rp),"function");
+    bindings=json[@"fragment"];
+   }
+  }
+  self.cachedArguments=bindings?reflectionArguments(bindings):nil;
+  return self.cachedArguments;
+ }
+}
+@end
+#endif
 
 // ---- heaps ----
 // Metal heaps over the runtime's: an automatic heap places each resource, a placement heap takes an offset. Resources made from one keep it
